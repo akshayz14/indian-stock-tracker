@@ -1,0 +1,15 @@
+pandas
+numpy
+nsetools
+nsepy
+yfinance
+requests
+beautifulsoup4
+python-dotenv
+scikit-learn
+flask
+sqlalchemy
+APScheduler
+matplotlib
+seaborn
+plotly
