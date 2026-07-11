@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Details - Indian Stock Tracker DB Browser</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .nav { margin-bottom: 20px; }
+        .nav a { margin-right: 15px; }
+        .stock-header { margin-bottom: 20px; }
+        .charts { margin-top: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .pagination { margin-top: 20px; }
+        .pagination a { margin: 0 10px; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">Home</a>
+            <a href="/stocks">Stocks</a>
+            <a href="/prices">Prices</a>
+            <a href="/suggestions">Suggestions</a>
+        </div>
+        <div class="stock-header">
+            <h1>{{ stock.symbol }} - {{ stock.name }}</h1>
+            <p><strong>Exchange:</strong> {{ stock.exchange }}</p>
+            <p><strong>Sector:</strong> {{ stock.sector|default('-') }}</p>
+        </div>
+        <h2>Recent Prices</h2>
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Close</th>
+                <th>Volume</th>
+                <th>Adj Close</th>
+            </tr>
+            {% for price in recent_prices %}
+            <tr>
+                <td>{{ price.date }}</td>
+                <td>{{ price.open }}</td>
+                <td>{{ price.high }}</td>
+                <td>{{ price.low }}</td>
+                <td>{{ price.close }}</td>
+                <td>{{ price.volume }}</td>
+                <td>{{ price.adj_close }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <h2>Suggestions</h2>
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>Score</th>
+                <th>Reasoning</th>
+            </tr>
+            {% for suggestion in suggestions %}
+            <tr>
+                <td>{{ suggestion.date }}</td>
+                <td>{{ suggestion.score }}</td>
+                <td>{{ suggestion.reasoning }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <div class="charts">
+            <!-- Placeholder for charts that could be added later -->
+            <p>Chart placeholder - could display price history, score trends, etc.</p>
+        </div>
+    </div>
+</body>
+</html>

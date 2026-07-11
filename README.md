@@ -90,3 +90,36 @@ indian_stock_tracker/
 3. Build the SQLite database and store initial data
 4. Develop the scoring function (start with simple momentum + volume criteria)
 5. Create CLI to display top 5 suggestions
+
+## DB Browser UI (Web Interface)
+A Flask-based web UI is provided to browse the database like a DB explorer.
+
+### Run the UI
+```bash
+pip install -r requirements.txt
+python flask_app.py
+```
+Then open http://localhost:8080 in your browser.
+
+### Features
+- **Dashboard (`/`)**: Overview with total stocks, price records, suggestions, and latest data date.
+- **Stocks (`/stocks`)**: Paginated list of all tracked stocks. Click a stock to view its detail page.
+- **Stock Detail (`/stocks/<id>`)**: Recent prices and suggestions for a single stock.
+- **Prices (`/prices`)**: Daily price records with filtering by stock and date range, plus pagination.
+- **Suggestions (`/suggestions`)**: Generated suggestions with filtering by stock and date range.
+- **JSON APIs**:
+  - `GET /api/stocks` — all stocks as JSON
+  - `GET /api/prices?stock_id=&days=` — recent prices as JSON
+
+### Project Structure (added)
+```
+indian_stock_tracker/
+├── flask_app.py          # Flask app serving the DB browser UI
+├── templates/
+│   ├── index.html        # Dashboard
+│   ├── stocks.html       # Stocks list
+│   ├── stock_detail.html # Single stock detail
+│   ├── prices.html       # Prices browser with filters
+│   └── suggestions.html  # Suggestions browser with filters
+└── ...
+```

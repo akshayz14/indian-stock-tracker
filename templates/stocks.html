@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stocks - Indian Stock Tracker DB Browser</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .pagination { margin-top: 20px; }
+        .pagination a { margin: 0 10px; text-decoration: none; }
+        .nav { margin-bottom: 20px; }
+        .nav a { margin-right: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">Home</a>
+            <a href="/stocks">Stocks</a>
+            <a href="/prices">Prices</a>
+            <a href="/suggestions">Suggestions</a>
+        </div>
+        <h1>Stocks</h1>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Symbol</th>
+                <th>Name</th>
+                <th>Exchange</th>
+                <th>Sector</th>
+                <th>Actions</th>
+            </tr>
+            {% for stock in stocks %}
+            <tr>
+                <td>{{ stock.id }}</td>
+                <td>{{ stock.symbol }}</td>
+                <td>{{ stock.name }}</td>
+                <td>{{ stock.exchange }}</td>
+                <td>{{ stock.sector|default('-') }}</td>
+                <td><a href="/stocks/{{ stock.id }}">View Details</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        <div class="pagination">
+            {% if has_prev %}
+            <a href="?page={{ page - 1 }}">&laquo; Previous</a>
+            {% endif %}
+            <span>Page {{ page }}</span>
+            {% if has_next %}
+            <a href="?page={{ page + 1 }}">Next &raquo;</a>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
