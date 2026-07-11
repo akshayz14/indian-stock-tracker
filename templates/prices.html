@@ -1,80 +1,73 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Prices - Indian Stock Tracker DB Browser</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .pagination { margin-top: 20px; }
-        .pagination a { margin: 0 10px; text-decoration: none; }
-        .nav { margin-bottom: 20px; }
-        .nav a { margin-right: 15px; }
-        .filter-controls { margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 5px; }
-        .filter-controls label { margin-right: 10px; }
-        .filter-controls input, .filter-controls select { padding: 5px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="nav">
-            <a href="/">Home</a>
-            <a href="/stocks">Stocks</a>
-            <a href="/prices">Prices</a>
-            <a href="/suggestions">Suggestions</a>
-        </div>
-        <h1>Daily Prices</h1>
-        <div class="filter-controls">
-            <form method="get" action="/prices">
-                <label for="stock_id">Stock:</label>
-                <select name="stock_id" id="stock_id">
-                    <option value="">All Stocks</option>
-                    {% for stock in stocks %}
-                    <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.symbol }} - {{ stock.name }}</option>
-                    {% endfor %}
-                </select>
-                <label for="start_date">Start Date:</label>
-                <input type="date" name="start_date" id="start_date" value="{{ start_date|default('') }}">
-                <label for="end_date">End Date:</label>
-                <input type="date" name="end_date" id="end_date" value="{{ end_date|default('') }}">
-                <button type="submit">Filter</button>
-            </form>
-        </div>
-        <table>
-            <tr>
-                <th>Date</th>
-                <th>Stock</th>
-                <th>Open</th>
-                <th>High</th>
-                <th>Low</th>
-                <th>Close</th>
-                <th>Volume</th>
-                <th>Adj Close</th>
-            </tr>
-            {% for price in prices %}
-            <tr>
-                <td>{{ price[0].date }}</td>
-                <td>{{ price[1].symbol }}</td>
-                <td>{{ price[0].open }}</td>
-                <td>{{ price[0].high }}</td>
-                <td>{{ price[0].low }}</td>
-                <td>{{ price[0].close }}</td>
-                <td>{{ price[0].volume }}</td>
-                <td>{{ price[0].adj_close }}</td>
-            </tr>
+{% extends "base.html" %}
+{% block title %}Prices{% endblock %}
+{% block content %}
+<div class="page-head">
+    <h1>Daily Prices</h1>
+    <p>Historical OHLCV data across tracked stocks</p>
+</div>
+
+<form class="filters" method="get" action="/prices">
+    <div class="field">
+        <label for="stock_id">Stock</label>
+        <select name="stock_id" id="stock_id">
+            <option value="">All Stocks</option>
+            {% for stock in stocks %}
+            <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.symbol }}</option>
             {% endfor %}
-        </table>
-        <div class="pagination">
-            {% if has_prev %}
-            <a href="?page={{ page - 1 }}">&laquo; Previous</a>
-            {% endif %}
-            <span>Page {{ page }}</span>
-            {% if has_next %}
-            <a href="?page={{ page + 1 }}">Next &raquo;</a>
-            {% endif %}
-        </div>
+        </select>
     </div>
-</body>
-</html>
+    <div class="field">
+        <label for="start_date">From</label>
+        <input type="date" name="start_date" id="start_date" value="{{ start_date|default('') }}">
+    </div>
+    <div class="field">
+        <label for="end_date">To</label>
+        <input type="date" name="end_date" id="end_date" value="{{ end_date|default('') }}">
+    </div>
+    <button class="btn" type="submit">Apply Filters</button>
+    <a class="btn secondary" href="/prices">Reset</a>
+</form>
+
+<div class="card">
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Date</th><th>Stock</th><th>Open</th><th>High</th>
+                    <th>Low</th><th>Close</th><th>Volume</th><th>Adj Close</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for price in prices %}
+                <tr>
+                    <td class="mono">{{ price[0].date }}</td>
+                    <td><a class="link" href="/stocks/{{ price[1].id }}">{{ price[1].symbol }}</a></td>
+                    <td class="mono">{{ '%.2f'|format(price[0].open) }}</td>
+                    <td class="mono">{{ '%.2f'|format(price[0].high) }}</td>
+                    <td class="mono">{{ '%.2f'|format(price[0].low) }}</td>
+                    <td class="mono">{{ '%.2f'|format(price[0].close) }}</td>
+                    <td class="mono">{{ '{:,}'.format(price[0].volume|int) }}</td>
+                    <td class="mono">{{ '%.2f'|format(price[0].adj_close) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="empty">No price records found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination">
+        {% if has_prev %}
+        <a href="?page={{ page - 1 }}{% if selected_stock_id %}&stock_id={{ selected_stock_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">← Previous</a>
+        {% else %}
+        <span class="disabled">← Previous</span>
+        {% endif %}
+        <span>Page {{ page }} of {{ total_pages }}</span>
+        {% if has_next %}
+        <a href="?page={{ page + 1 }}{% if selected_stock_id %}&stock_id={{ selected_stock_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">Next →</a>
+        {% else %}
+        <span class="disabled">Next →</span>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

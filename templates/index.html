@@ -1,23 +1,37 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Indian Stock Tracker DB Browser</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; }
-        th { background-color: #f2f2f2; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Database Overview</h1>
-        <p>Total Stocks: {{ stats.total_stocks }}</p>
-        <p>Total Price Records: {{ stats.total_prices }}</p>
-        <p>Total Suggestions: {{ stats.total_suggestions }}</p>
-        <p>Latest Data: {{ stats.latest_date|default('No data yet') }}</p>
-        <a href="/stocks">View All Stocks</a>
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+    <h1>Dashboard</h1>
+    <p>Overview of your Indian stock tracking database</p>
+</div>
+
+<div class="stat-grid">
+    <div class="stat">
+        <div class="label">Tracked Stocks</div>
+        <div class="value brand">{{ stats.total_stocks }}</div>
     </div>
-</body>
-</html>
+    <div class="stat">
+        <div class="label">Price Records</div>
+        <div class="value">{{ stats.total_prices }}</div>
+    </div>
+    <div class="stat">
+        <div class="label">Suggestions</div>
+        <div class="value">{{ stats.total_suggestions }}</div>
+    </div>
+    <div class="stat">
+        <div class="label">Latest Data</div>
+        <div class="value" style="font-size:20px;">{{ stats.latest_date|default('No data yet') }}</div>
+    </div>
+</div>
+
+<div class="card" style="margin-top:24px;">
+    <h2 style="margin-top:0;font-size:18px;">Quick Actions</h2>
+    <p style="color:var(--muted);">Browse the database like a research terminal. Start with the full stock list or jump into today's suggestions.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <a class="btn" href="/stocks">View All Stocks</a>
+        <a class="btn secondary" href="/suggestions">Top Suggestions</a>
+        <a class="btn secondary" href="/prices">Price History</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Stock Tracker{% endblock %} · Indian Stock Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="topnav">
+        <div class="logo"><span class="dot"></span> StockTracker</div>
+        <div class="navlinks">
+            <a href="/" class="{% if active == 'home' %}active{% endif %}">Dashboard</a>
+            <a href="/stocks" class="{% if active == 'stocks' %}active{% endif %}">Stocks</a>
+            <a href="/prices" class="{% if active == 'prices' %}active{% endif %}">Prices</a>
+            <a href="/suggestions" class="{% if active == 'suggestions' %}active{% endif %}">Suggestions</a>
+        </div>
+        <form class="search" action="/stocks" method="get">
+            <input type="text" name="q" placeholder="Search stocks…" value="{{ request.args.get('q','') }}">
+        </form>
+    </nav>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="section-title">Explore</div>
+            <a href="/" class="{% if active == 'home' %}active{% endif %}">📊 Dashboard</a>
+            <a href="/stocks" class="{% if active == 'stocks' %}active{% endif %}">📈 Stocks</a>
+            <a href="/prices" class="{% if active == 'prices' %}active{% endif %}">💹 Prices</a>
+            <a href="/suggestions" class="{% if active == 'suggestions' %}active{% endif %}">⭐ Suggestions</a>
+            <div class="section-title">Data</div>
+            <a href="/api/stocks">⚙ API · Stocks</a>
+            <a href="/api/prices">⚙ API · Prices</a>
+        </aside>
+
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>
