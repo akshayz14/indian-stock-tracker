@@ -27,7 +27,7 @@ def calculate_score(price: DailyPrice) -> float:
     # Composite score (weights can be tuned)
     return momentum * 0.7 + volume_factor * 0.3
 
-def generate_suggestions(target_date: datetime.date = None, top_n: int = 5):
+def generate_suggestions(target_date: datetime.date = None, top_n: int = 50):
     """
     Generate top N suggestions for the given date (default: yesterday).
     Stores suggestions in the DB and returns a list of (symbol, score, reasoning).
