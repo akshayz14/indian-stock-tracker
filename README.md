@@ -4,7 +4,7 @@ A Python application that tracks Indian stock market data, scores stocks using a
 
 ## Features
 
-- **Data fetching**: Pulls daily OHLCV (open, high, low, close, volume) data for NSE-listed stocks via Yahoo Finance (`yfinance`).
+- **Data fetching**: Pulls daily OHLCV (open, high, low, close, volume) data for NSE-listed stocks from multiple providers — NSE India (`nsepy`) as the primary source, with Yahoo Finance (`yfinance`) as an automatic fallback. This makes the app resilient to a single provider being rate-limited or unavailable.
 - **Scoring engine**: Computes a composite score per stock per day using price momentum and a relative volume factor.
 - **Persistence**: Stores stocks, daily prices, and top suggestions in a SQLite database via SQLAlchemy ORM.
 - **CLI**: Print the top suggestions for any date.
@@ -16,7 +16,8 @@ A Python application that tracks Indian stock market data, scores stocks using a
 ```
 indian_stock_tracker/
 ├── models.py          # SQLAlchemy models (Stock, DailyPrice, Suggestion) + DB session helpers
-├── data_fetcher.py    # Fetches & stores daily price data from Yahoo Finance
+├── data_sources.py    # Data-source abstraction (yfinance + NSE) with fallback
+├── data_fetcher.py    # Fetches & stores daily price data using the configured sources
 ├── scoring.py         # Scoring algorithm (momentum + volume) and suggestion generation
 ├── cli.py             # Command-line interface to print top suggestions
 ├── run_daily.py       # Master script: fetch -> score -> store -> print
@@ -59,7 +60,7 @@ source venv/bin/activate          # macOS / Linux
 pip install -r requirements.txt
 ```
 
-> Dependencies include: `pandas`, `numpy`, `yfinance`, `requests`, `beautifulsoup4`, `python-dotenv`, `scikit-learn`, `flask`, `sqlalchemy`, `APScheduler`, `matplotlib`, `seaborn`, `plotly`.
+> Dependencies include: `pandas`, `numpy`, `yfinance`, `nsepy`, `requests`, `beautifulsoup4`, `python-dotenv`, `scikit-learn`, `flask`, `sqlalchemy`, `APScheduler`, `matplotlib`, `seaborn`, `plotly`.
 
 ## Usage
 
@@ -121,6 +122,7 @@ To run the tracker automatically after market close (≈ 6:00 PM IST), add a cro
 ## Configuration Notes
 
 - **Tracked symbols**: `data_fetcher.py` defines `DEFAULT_SYMBOLS` — a list of ~50 major NSE stocks (Yahoo Finance format, e.g. `RELIANCE.NS`). To track different or more stocks, edit `DEFAULT_SYMBOLS`. More tracked stocks means a larger pool of candidates for the top-50 suggestions.
+- **Data sources**: `data_sources.py` defines a `DataSource` abstraction with two implementations — `NSESource` (primary) and `YFinanceSource` (fallback). `data_fetcher.SOURCES` controls the order in which they are tried. If NSE fails for a symbol, the fetcher automatically falls back to Yahoo Finance, so a single provider outage no longer drops stocks from the database. To change priority or add a new provider, edit `DEFAULT_SOURCES` / `SOURCES`.
 - **Suggestion date**: `run_daily.py` generates suggestions for the **latest date that has price data** in the DB (not a hardcoded "yesterday"), so it always matches the data that was just fetched.
 - **Scoring**: Defined in `scoring.py` as `momentum * 0.7 + volume_factor * 0.3`. Tune the weights or add factors (e.g. from `scikit-learn`) as needed.
 - **API keys**: The original design allowed for NSE/Alpha Vantage/Finnhub keys via a `.env` file, but the current implementation relies on `yfinance`, which needs no key.

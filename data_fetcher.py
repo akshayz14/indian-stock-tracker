@@ -1,8 +1,7 @@
-import os
 import datetime
-import yfinance as yf
 from sqlalchemy.orm import Session
 from models import Stock, DailyPrice, get_session
+from data_sources import fetch_with_fallback, resolve_name, DEFAULT_SOURCES
 
 # Default list of NSE symbols to track (major large/mid-cap stocks).
 # Expand this list to increase the pool of candidates for suggestions.
@@ -19,6 +18,11 @@ DEFAULT_SYMBOLS = [
     'UPL.NS', 'SHREECEM.NS', 'BAJAJ-AUTO.NS', 'TATACONSUM.NS', 'ADANIENT.NS',
 ]
 
+# Ordered list of data sources used when fetching prices. yfinance is the
+# primary source; NSE (via nsepy) is the fallback for resilience.
+SOURCES = DEFAULT_SOURCES
+
+
 # Helper to ensure a stock record exists
 def get_or_create_stock(session: Session, symbol: str, name: str = None, exchange: str = None, sector: str = None):
     stock = session.query(Stock).filter_by(symbol=symbol).first()
@@ -28,25 +32,30 @@ def get_or_create_stock(session: Session, symbol: str, name: str = None, exchang
         session.commit()
     return stock
 
-def fetch_and_store(symbols):
+
+def fetch_and_store(symbols, sources=None):
     """
     Fetch daily price data for given symbols and store in SQLite DB.
-    Symbols should be in Yahoo Finance format, e.g., 'RELIANCE.NS'
+
+    Symbols should be in Yahoo Finance format, e.g., 'RELIANCE.NS'. Data is
+    pulled from the configured sources (yfinance first, then NSE as a
+    fallback), so a failure in one provider does not drop the stock entirely.
     """
+    sources = sources or SOURCES
     session = get_session()
     for sym in symbols:
         try:
-            ticker = yf.Ticker(sym)
-            hist = ticker.history(period='2d')  # get last 2 days to ensure we have yesterday's close
-            if hist.empty:
-                print(f'No data for {sym}')
+            ohlcv = fetch_with_fallback(sym, sources)
+            if ohlcv is None:
+                print(f'No data for {sym} from any source')
                 continue
 
-            # Use the most recent row (yesterday's data)
-            latest = hist.iloc[-1]
-            date = latest.name.date() if isinstance(latest.name, datetime.datetime) else latest.name
+            date = ohlcv.date
 
-            stock = get_or_create_stock(session, sym, name=ticker.info.get('shortName'), exchange='NSE')
+            # Resolve a friendly name, falling back across sources.
+            name = resolve_name(sym, sources)
+            stock = get_or_create_stock(session, sym, name=name, exchange='NSE')
+
             # Check if price for this date already exists
             exists = session.query(DailyPrice).filter_by(stock_id=stock.id, date=date).first()
             if exists:
@@ -55,12 +64,12 @@ def fetch_and_store(symbols):
             price = DailyPrice(
                 stock_id=stock.id,
                 date=date,
-                open=latest['Open'],
-                high=latest['High'],
-                low=latest['Low'],
-                close=latest['Close'],
-                adj_close=latest.get('Adj Close', latest['Close']),
-                volume=latest['Volume']
+                open=ohlcv.open,
+                high=ohlcv.high,
+                low=ohlcv.low,
+                close=ohlcv.close,
+                adj_close=ohlcv.adj_close,
+                volume=ohlcv.volume
             )
             session.add(price)
             session.commit()
@@ -68,6 +77,7 @@ def fetch_and_store(symbols):
         except Exception as e:
             print(f'Error fetching {sym}: {e}')
     session.close()
+
 
 if __name__ == '__main__':
     # Example usage
