@@ -37,29 +37,38 @@ def index():
             'total_suggestions': session.query(Suggestion).count(),
             'latest_date': session.query(DailyPrice.date).order_by(DailyPrice.date.desc()).first()[0] if session.query(DailyPrice).first() else None
         }
-        return render_template('index.html', stats=stats)
+        return render_template('index.html', stats=stats, active='home')
     finally:
         session.close()
 
 @app.route('/stocks')
 @login_required
 def stocks():
-    """Display all stocks"""
+    """Display all stocks, with optional search by symbol/name"""
     session = get_db_session()
     try:
         page = request.args.get('page', 1, type=int)
         per_page = 20
-        
+        q = request.args.get('q', '').strip()
+
         stocks_query = session.query(Stock)
+        if q:
+            like = f"%{q}%"
+            stocks_query = stocks_query.filter(
+                (Stock.symbol.ilike(like)) | (Stock.name.ilike(like))
+            )
         total = stocks_query.count()
         stocks = stocks_query.order_by(Stock.symbol).offset((page - 1) * per_page).limit(per_page).all()
-        
-        return render_template('stocks.html', 
-                             stocks=stocks, 
-                             page=page, 
+        total_pages = max(1, (total + per_page - 1) // per_page)
+
+        return render_template('stocks.html',
+                             stocks=stocks,
+                             page=page,
                              per_page=per_page,
                              total=total,
-                             has_next=page * per_page < total,
+                             total_pages=total_pages,
+                             q=q,
+                             has_next=page < total_pages,
                              has_prev=page > 1)
     finally:
         session.close()
@@ -80,10 +89,11 @@ def stock_detail(stock_id):
         # Get suggestions for this stock
         suggestions = session.query(Suggestion).filter_by(stock_id=stock_id).order_by(Suggestion.date.desc()).limit(5).all()
         
-        return render_template('stock_detail.html', 
-                             stock=stock, 
+        return render_template('stock_detail.html',
+                             stock=stock,
                              recent_prices=recent_prices,
-                             suggestions=suggestions)
+                             suggestions=suggestions,
+                             active='stocks')
     finally:
         session.close()
 
@@ -116,16 +126,19 @@ def prices():
         total = query.count()
         prices = query.order_by(DailyPrice.date.desc()).offset((page - 1) * per_page).limit(per_page).all()
         
+        total_pages = max(1, (total + per_page - 1) // per_page)
         return render_template('prices.html',
                              prices=prices,
                              stocks=stocks,
                              page=page,
                              per_page=per_page,
                              total=total,
-                             has_next=page * per_page < total,
+                             total_pages=total_pages,
+                             has_next=page < total_pages,
                              has_prev=page > 1,
                              start_date=start_date,
-                             end_date=end_date)
+                             end_date=end_date,
+                             active='prices')
     finally:
         session.close()
 
@@ -158,16 +171,19 @@ def suggestions():
         total = query.count()
         suggestions = query.order_by(Suggestion.date.desc()).offset((page - 1) * per_page).limit(per_page).all()
         
+        total_pages = max(1, (total + per_page - 1) // per_page)
         return render_template('suggestions.html',
                              suggestions=suggestions,
                              stocks=stocks,
                              page=page,
                              per_page=per_page,
                              total=total,
-                             has_next=page * per_page < total,
+                             total_pages=total_pages,
+                             has_next=page < total_pages,
                              has_prev=page > 1,
                              start_date=start_date,
-                             end_date=end_date)
+                             end_date=end_date,
+                             active='suggestions')
     finally:
         session.close()
 

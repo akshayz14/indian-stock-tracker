@@ -1,76 +1,69 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Stock Details - Indian Stock Tracker DB Browser</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .nav { margin-bottom: 20px; }
-        .nav a { margin-right: 15px; }
-        .stock-header { margin-bottom: 20px; }
-        .charts { margin-top: 20px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .pagination { margin-top: 20px; }
-        .pagination a { margin: 0 10px; text-decoration: none; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="nav">
-            <a href="/">Home</a>
-            <a href="/stocks">Stocks</a>
-            <a href="/prices">Prices</a>
-            <a href="/suggestions">Suggestions</a>
-        </div>
-        <div class="stock-header">
-            <h1>{{ stock.symbol }} - {{ stock.name }}</h1>
-            <p><strong>Exchange:</strong> {{ stock.exchange }}</p>
-            <p><strong>Sector:</strong> {{ stock.sector|default('-') }}</p>
-        </div>
-        <h2>Recent Prices</h2>
-        <table>
-            <tr>
-                <th>Date</th>
-                <th>Open</th>
-                <th>High</th>
-                <th>Low</th>
-                <th>Close</th>
-                <th>Volume</th>
-                <th>Adj Close</th>
-            </tr>
-            {% for price in recent_prices %}
-            <tr>
-                <td>{{ price.date }}</td>
-                <td>{{ price.open }}</td>
-                <td>{{ price.high }}</td>
-                <td>{{ price.low }}</td>
-                <td>{{ price.close }}</td>
-                <td>{{ price.volume }}</td>
-                <td>{{ price.adj_close }}</td>
-            </tr>
-            {% endfor %}
-        </table>
-        <h2>Suggestions</h2>
-        <table>
-            <tr>
-                <th>Date</th>
-                <th>Score</th>
-                <th>Reasoning</th>
-            </tr>
-            {% for suggestion in suggestions %}
-            <tr>
-                <td>{{ suggestion.date }}</td>
-                <td>{{ suggestion.score }}</td>
-                <td>{{ suggestion.reasoning }}</td>
-            </tr>
-            {% endfor %}
-        </table>
-        <div class="charts">
-            <!-- Placeholder for charts that could be added later -->
-            <p>Chart placeholder - could display price history, score trends, etc.</p>
-        </div>
+{% extends "base.html" %}
+{% block title %}{{ stock.symbol }}{% endblock %}
+{% block content %}
+<div class="stock-head">
+    <div class="avatar">{{ stock.symbol[:2] }}</div>
+    <div>
+        <h1>{{ stock.symbol }}</h1>
+        <div class="sub">{{ stock.name }} · <span class="badge">{{ stock.exchange }}</span></div>
     </div>
-</body>
-</html>
+</div>
+
+<div class="kv-grid" style="margin-bottom:20px;">
+    <div class="kv"><div class="k">Sector</div><div class="v">{{ stock.sector|default('-') }}</div></div>
+    <div class="kv"><div class="k">Exchange</div><div class="v">{{ stock.exchange }}</div></div>
+    <div class="kv"><div class="k">Price Records</div><div class="v">{{ recent_prices|length }}</div></div>
+    <div class="kv"><div class="k">Suggestions</div><div class="v">{{ suggestions|length }}</div></div>
+</div>
+
+<div class="card">
+    <h2 style="margin-top:0;font-size:18px;">Recent Prices</h2>
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Date</th><th>Open</th><th>High</th><th>Low</th>
+                    <th>Close</th><th>Volume</th><th>Adj Close</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for price in recent_prices %}
+                <tr>
+                    <td class="mono">{{ price.date }}</td>
+                    <td class="mono">{{ '%.2f'|format(price.open) }}</td>
+                    <td class="mono">{{ '%.2f'|format(price.high) }}</td>
+                    <td class="mono">{{ '%.2f'|format(price.low) }}</td>
+                    <td class="mono">{{ '%.2f'|format(price.close) }}</td>
+                    <td class="mono">{{ '{:,}'.format(price.volume|int) }}</td>
+                    <td class="mono">{{ '%.2f'|format(price.adj_close) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="empty">No price data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2 style="margin-top:0;font-size:18px;">Suggestions</h2>
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr><th>Date</th><th>Score</th><th>Reasoning</th></tr>
+            </thead>
+            <tbody>
+                {% for suggestion in suggestions %}
+                <tr>
+                    <td class="mono">{{ suggestion.date }}</td>
+                    <td class="mono"><span class="pos">{{ '%.4f'|format(suggestion.score) }}</span></td>
+                    <td>{{ suggestion.reasoning }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="empty">No suggestions.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

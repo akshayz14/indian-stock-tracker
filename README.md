@@ -74,7 +74,7 @@ python run_daily.py
 This will:
 1. Ensure the DB and tables exist.
 2. Fetch daily prices for the tracked symbols (e.g. `RELIANCE.NS`, `TCS.NS`, `HDFCBANK.NS`, `INFY.NS`, `ICICIBANK.NS`).
-3. Generate and store the top-5 suggestions for yesterday.
+3. Generate and store the top-50 suggestions for yesterday.
 4. Print the results to the console.
 
 ### 2. Command-line suggestions
@@ -120,6 +120,7 @@ To run the tracker automatically after market close (≈ 6:00 PM IST), add a cro
 
 ## Configuration Notes
 
-- **Data source**: `data_fetcher.py` uses `yfinance` with Yahoo Finance symbol format (e.g. `RELIANCE.NS`). To track different stocks, edit the `symbols` list in `run_daily.py`.
+- **Tracked symbols**: `data_fetcher.py` defines `DEFAULT_SYMBOLS` — a list of ~50 major NSE stocks (Yahoo Finance format, e.g. `RELIANCE.NS`). To track different or more stocks, edit `DEFAULT_SYMBOLS`. More tracked stocks means a larger pool of candidates for the top-50 suggestions.
+- **Suggestion date**: `run_daily.py` generates suggestions for the **latest date that has price data** in the DB (not a hardcoded "yesterday"), so it always matches the data that was just fetched.
 - **Scoring**: Defined in `scoring.py` as `momentum * 0.7 + volume_factor * 0.3`. Tune the weights or add factors (e.g. from `scikit-learn`) as needed.
 - **API keys**: The original design allowed for NSE/Alpha Vantage/Finnhub keys via a `.env` file, but the current implementation relies on `yfinance`, which needs no key.

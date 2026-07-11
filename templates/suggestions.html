@@ -1,72 +1,67 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Suggestions - Indian Stock Tracker DB Browser</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .pagination { margin-top: 20px; }
-        .pagination a { margin: 0 10px; text-decoration: none; }
-        .nav { margin-bottom: 20px; }
-        .nav a { margin-right: 15px; }
-        .filter-controls { margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 5px; }
-        .filter-controls label { margin-right: 10px; }
-        .filter-controls input, .filter-controls select { padding: 5px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="nav">
-            <a href="/">Home</a>
-            <a href="/stocks">Stocks</a>
-            <a href="/prices">Prices</a>
-            <a href="/suggestions">Suggestions</a>
-        </div>
-        <h1>Suggestions</h1>
-        <div class="filter-controls">
-            <form method="get" action="/suggestions">
-                <label for="stock_id">Stock:</label>
-                <select name="stock_id" id="stock_id">
-                    <option value="">All Stocks</option>
-                    {% for stock in stocks %}
-                    <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.symbol }} - {{ stock.name }}</option>
-                    {% endfor %}
-                </select>
-                <label for="start_date">Start Date:</label>
-                <input type="date" name="start_date" id="start_date" value="{{ start_date|default('') }}">
-                <label for="end_date">End Date:</label>
-                <input type="date" name="end_date" id="end_date" value="{{ end_date|default('') }}">
-                <button type="submit">Filter</button>
-            </form>
-        </div>
-        <table>
-            <tr>
-                <th>Date</th>
-                <th>Stock</th>
-                <th>Score</th>
-                <th>Reasoning</th>
-            </tr>
-            {% for suggestion in suggestions %}
-            <tr>
-                <td>{{ suggestion[0].date }}</td>
-                <td>{{ suggestion[1].symbol }}</td>
-                <td>{{ suggestion[0].score }}</td>
-                <td>{{ suggestion[0].reasoning }}</td>
-            </tr>
+{% extends "base.html" %}
+{% block title %}Suggestions{% endblock %}
+{% block content %}
+<div class="page-head">
+    <h1>Suggestions</h1>
+    <p>Top-scoring stocks by momentum + volume strategy</p>
+</div>
+
+<form class="filters" method="get" action="/suggestions">
+    <div class="field">
+        <label for="stock_id">Stock</label>
+        <select name="stock_id" id="stock_id">
+            <option value="">All Stocks</option>
+            {% for stock in stocks %}
+            <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.symbol }}</option>
             {% endfor %}
-        </table>
-        <div class="pagination">
-            {% if has_prev %}
-            <a href="?page={{ page - 1 }}">&laquo; Previous</a>
-            {% endif %}
-            <span>Page {{ page }}</span>
-            {% if has_next %}
-            <a href="?page={{ page + 1 }}">Next &raquo;</a>
-            {% endif %}
-        </div>
+        </select>
     </div>
-</body>
-</html>
+    <div class="field">
+        <label for="start_date">From</label>
+        <input type="date" name="start_date" id="start_date" value="{{ start_date|default('') }}">
+    </div>
+    <div class="field">
+        <label for="end_date">To</label>
+        <input type="date" name="end_date" id="end_date" value="{{ end_date|default('') }}">
+    </div>
+    <button class="btn" type="submit">Apply Filters</button>
+    <a class="btn secondary" href="/suggestions">Reset</a>
+</form>
+
+<div class="card">
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr><th>#</th><th>Date</th><th>Stock</th><th>Score</th><th>Reasoning</th></tr>
+            </thead>
+            <tbody>
+                {% for suggestion in suggestions %}
+                <tr>
+                    <td class="mono">{{ (page - 1) * per_page + loop.index }}</td>
+                    <td class="mono">{{ suggestion[0].date }}</td>
+                    <td><a class="link" href="/stocks/{{ suggestion[1].id }}">{{ suggestion[1].symbol }}</a></td>
+                    <td class="mono"><span class="pos">{{ '%.4f'|format(suggestion[0].score) }}</span></td>
+                    <td>{{ suggestion[0].reasoning }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="empty">No suggestions found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination">
+        {% if has_prev %}
+        <a href="?page={{ page - 1 }}{% if selected_stock_id %}&stock_id={{ selected_stock_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">← Previous</a>
+        {% else %}
+        <span class="disabled">← Previous</span>
+        {% endif %}
+        <span>Page {{ page }} of {{ total_pages }}</span>
+        {% if has_next %}
+        <a href="?page={{ page + 1 }}{% if selected_stock_id %}&stock_id={{ selected_stock_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">Next →</a>
+        {% else %}
+        <span class="disabled">Next →</span>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

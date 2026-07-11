@@ -4,6 +4,21 @@ import yfinance as yf
 from sqlalchemy.orm import Session
 from models import Stock, DailyPrice, get_session
 
+# Default list of NSE symbols to track (major large/mid-cap stocks).
+# Expand this list to increase the pool of candidates for suggestions.
+DEFAULT_SYMBOLS = [
+    'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
+    'HINDUNILVR.NS', 'ITC.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS',
+    'LT.NS', 'AXISBANK.NS', 'ASIANPAINT.NS', 'MARUTI.NS', 'SUNPHARMA.NS',
+    'TATAMOTORS.NS', 'BAJFINANCE.NS', 'WIPRO.NS', 'NTPC.NS', 'POWERGRID.NS',
+    'ONGC.NS', 'TATASTEEL.NS', 'HCLTECH.NS', 'ULTRACEMCO.NS', 'TITAN.NS',
+    'ADANIPORTS.NS', 'BAJAJFINSV.NS', 'DRREDDY.NS', 'GRASIM.NS', 'CIPLA.NS',
+    'EICHERMOT.NS', 'COALINDIA.NS', 'JSWSTEEL.NS', 'BPCL.NS', 'IOC.NS',
+    'DIVISLAB.NS', 'TECHM.NS', 'HEROMOTOCO.NS', 'HDFCLIFE.NS', 'SBILIFE.NS',
+    'INDUSINDBK.NS', 'BRITANNIA.NS', 'APOLLOHOSP.NS', 'M&M.NS', 'NESTLEIND.NS',
+    'UPL.NS', 'SHREECEM.NS', 'BAJAJ-AUTO.NS', 'TATACONSUM.NS', 'ADANIENT.NS',
+]
+
 # Helper to ensure a stock record exists
 def get_or_create_stock(session: Session, symbol: str, name: str = None, exchange: str = None, sector: str = None):
     stock = session.query(Stock).filter_by(symbol=symbol).first()
