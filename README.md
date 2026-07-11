@@ -1,6 +1,3 @@
-# indian-stock-tracker
-# indian-stock-tracker
-
 # Indian Stock Tracker - Project Setup Checklist
 
 ## Initialization
