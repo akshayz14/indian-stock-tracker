@@ -1,68 +1,93 @@
 import datetime
 from sqlalchemy.orm import Session
-from models import Stock, DailyPrice, get_session
-from data_sources import fetch_with_fallback, resolve_name, DEFAULT_SOURCES
+from models import Asset, DailyPrice, Suggestion, get_session
+from data_sources import fetch_with_fallback, resolve_name, DEFAULT_SOURCES, MutualFundSource
 
-# Default list of NSE symbols to track (major large/mid-cap stocks).
-# Expand this list to increase the pool of candidates for suggestions.
-DEFAULT_SYMBOLS = [
-    'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
-    'HINDUNILVR.NS', 'ITC.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS',
-    'LT.NS', 'AXISBANK.NS', 'ASIANPAINT.NS', 'MARUTI.NS', 'SUNPHARMA.NS',
-    'TATAMOTORS.NS', 'BAJFINANCE.NS', 'WIPRO.NS', 'NTPC.NS', 'POWERGRID.NS',
-    'ONGC.NS', 'TATASTEEL.NS', 'HCLTECH.NS', 'ULTRACEMCO.NS', 'TITAN.NS',
-    'ADANIPORTS.NS', 'BAJAJFINSV.NS', 'DRREDDY.NS', 'GRASIM.NS', 'CIPLA.NS',
-    'EICHERMOT.NS', 'COALINDIA.NS', 'JSWSTEEL.NS', 'BPCL.NS', 'IOC.NS',
-    'DIVISLAB.NS', 'TECHM.NS', 'HEROMOTOCO.NS', 'HDFCLIFE.NS', 'SBILIFE.NS',
-    'INDUSINDBK.NS', 'BRITANNIA.NS', 'APOLLOHOSP.NS', 'M&M.NS', 'NESTLEIND.NS',
-    'UPL.NS', 'SHREECEM.NS', 'BAJAJ-AUTO.NS', 'TATACONSUM.NS', 'ADANIENT.NS',
+# Default list of symbols to track
+# Each entry is a tuple: (symbol, type)
+# 50 valid mfapi.in scheme codes (mutual funds) + a few equities for context.
+MF_SCHEME_CODES = [
+    119000, 119001, 119002, 119003, 119004, 119005, 119006, 119007, 119008, 119009,
+    119010, 119011, 119012, 119013, 119014, 119015, 119016, 119017, 119018, 119019,
+    119020, 119021, 119022, 119023, 119024, 119025, 119026, 119027, 119028, 119029,
+    119030, 119031, 119032, 119033, 119034, 119035, 119036, 119037, 119038, 119039,
+    119040, 119041, 119042, 119043, 119044, 119045, 119046, 119047, 119048, 119049,
 ]
 
-# Ordered list of data sources used when fetching prices. yfinance is the
-# primary source; NSE (via nsepy) is the fallback for resilience.
-SOURCES = DEFAULT_SOURCES
+DEFAULT_SYMBOLS = [
+    ('RELIANCE.NS', 'equity'),
+    ('TCS.NS', 'equity'),
+    ('HDFCBANK.NS', 'equity'),
+] + [(str(code), 'mutual_fund') for code in MF_SCHEME_CODES]
 
-
-# Helper to ensure a stock record exists
-def get_or_create_stock(session: Session, symbol: str, name: str = None, exchange: str = None, sector: str = None):
-    stock = session.query(Stock).filter_by(symbol=symbol).first()
-    if not stock:
-        stock = Stock(symbol=symbol, name=name or symbol, exchange=exchange or 'NSE', sector=sector)
-        session.add(stock)
+# Helper to ensure an asset record exists
+def get_or_create_asset(session: Session, symbol: str, name: str = None, exchange: str = None, sector: str = None, asset_type: str = 'equity'):
+    asset = session.query(Asset).filter_by(symbol=symbol).first()
+    if not asset:
+        asset = Asset(symbol=symbol, name=name or symbol, exchange=exchange or 'NSE', sector=sector, type=asset_type)
+        session.add(asset)
         session.commit()
-    return stock
-
+    return asset
 
 def fetch_and_store(symbols, sources=None):
     """
     Fetch daily price data for given symbols and store in SQLite DB.
-
-    Symbols should be in Yahoo Finance format, e.g., 'RELIANCE.NS'. Data is
-    pulled from the configured sources (yfinance first, then NSE as a
-    fallback), so a failure in one provider does not drop the stock entirely.
+    Symbols should be tuples: (symbol, type).
+    For mutual funds we store the recent NAV history (not just the latest
+    NAV) so that scoring has prior NAVs to compute returns against.
     """
-    sources = sources or SOURCES
     session = get_session()
-    for sym in symbols:
+    for sym, sym_type in symbols:
+        # Determine source list
+        if sym_type == 'mutual_fund':
+            srcs = [MutualFundSource()]
+        else:
+            srcs = DEFAULT_SOURCES
+
         try:
-            ohlcv = fetch_with_fallback(sym, sources)
+            if sym_type == 'mutual_fund':
+                # Store recent NAV history for proper scoring
+                history = MutualFundSource().fetch_history(sym, limit=60)
+                if not history:
+                    print(f'No data for {sym} from any source')
+                    continue
+                name = resolve_name(sym, srcs)
+                asset = get_or_create_asset(session, sym, name=name, asset_type=sym_type)
+                stored = 0
+                for ohlcv in history:
+                    exists = session.query(DailyPrice).filter_by(asset_id=asset.id, date=ohlcv.date).first()
+                    if exists:
+                        continue
+                    price = DailyPrice(
+                        asset_id=asset.id,
+                        date=ohlcv.date,
+                        open=ohlcv.open, high=ohlcv.high, low=ohlcv.low,
+                        close=ohlcv.close, adj_close=ohlcv.adj_close,
+                        volume=ohlcv.volume
+                    )
+                    session.add(price)
+                    stored += 1
+                session.commit()
+                if stored:
+                    print(f'Stored {stored} NAV records for {sym}')
+                continue
+
+            ohlcv = fetch_with_fallback(sym, srcs)
             if ohlcv is None:
                 print(f'No data for {sym} from any source')
                 continue
 
             date = ohlcv.date
-
-            # Resolve a friendly name, falling back across sources.
-            name = resolve_name(sym, sources)
-            stock = get_or_create_stock(session, sym, name=name, exchange='NSE')
+            name = resolve_name(sym, srcs)
+            asset = get_or_create_asset(session, sym, name=name, asset_type=sym_type)
 
             # Check if price for this date already exists
-            exists = session.query(DailyPrice).filter_by(stock_id=stock.id, date=date).first()
+            exists = session.query(DailyPrice).filter_by(asset_id=asset.id, date=date).first()
             if exists:
                 continue
 
             price = DailyPrice(
-                stock_id=stock.id,
+                asset_id=asset.id,
                 date=date,
                 open=ohlcv.open,
                 high=ohlcv.high,
@@ -78,8 +103,5 @@ def fetch_and_store(symbols, sources=None):
             print(f'Error fetching {sym}: {e}')
     session.close()
 
-
 if __name__ == '__main__':
-    # Example usage
-    sample_symbols = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS']
-    fetch_and_store(sample_symbols)
+    fetch_and_store(DEFAULT_SYMBOLS)

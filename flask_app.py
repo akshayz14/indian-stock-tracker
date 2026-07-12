@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from models import Stock, DailyPrice, Suggestion, get_session
+from models import Asset, DailyPrice, Suggestion, get_session
 import datetime
 from functools import wraps
 
@@ -32,7 +32,7 @@ def index():
     session = get_db_session()
     try:
         stats = {
-            'total_stocks': session.query(Stock).count(),
+            'total_assets': session.query(Asset).count(),
             'total_prices': session.query(DailyPrice).count(),
             'total_suggestions': session.query(Suggestion).count(),
             'latest_date': session.query(DailyPrice.date).order_by(DailyPrice.date.desc()).first()[0] if session.query(DailyPrice).first() else None
@@ -44,53 +44,57 @@ def index():
 @app.route('/stocks')
 @login_required
 def stocks():
-    """Display all stocks, with optional search by symbol/name"""
+    """Display all assets, with optional search by symbol/name and type filter"""
     session = get_db_session()
     try:
         page = request.args.get('page', 1, type=int)
         per_page = 20
         q = request.args.get('q', '').strip()
+        asset_type = request.args.get('type', None)
 
-        stocks_query = session.query(Stock)
+        assets_query = session.query(Asset)
+        if asset_type:
+            assets_query = assets_query.filter(Asset.type == asset_type)
         if q:
             like = f"%{q}%"
-            stocks_query = stocks_query.filter(
-                (Stock.symbol.ilike(like)) | (Stock.name.ilike(like))
+            assets_query = assets_query.filter(
+                (Asset.symbol.ilike(like)) | (Asset.name.ilike(like))
             )
-        total = stocks_query.count()
-        stocks = stocks_query.order_by(Stock.symbol).offset((page - 1) * per_page).limit(per_page).all()
+        total = assets_query.count()
+        assets = assets_query.order_by(Asset.symbol).offset((page - 1) * per_page).limit(per_page).all()
         total_pages = max(1, (total + per_page - 1) // per_page)
 
         return render_template('stocks.html',
-                             stocks=stocks,
-                             page=page,
-                             per_page=per_page,
-                             total=total,
-                             total_pages=total_pages,
-                             q=q,
-                             has_next=page < total_pages,
-                             has_prev=page > 1)
+                               stocks=assets,
+                               page=page,
+                               per_page=per_page,
+                               total=total,
+                               total_pages=total_pages,
+                               q=q,
+                               has_next=page < total_pages,
+                               has_prev=page > 1,
+                               asset_type=asset_type)
     finally:
         session.close()
 
-@app.route('/stocks/<int:stock_id>')
+@app.route('/stocks/<int:asset_id>')
 @login_required
-def stock_detail(stock_id):
-    """Display details for a specific stock"""
+def stock_detail(asset_id):
+    """Display details for a specific asset"""
     session = get_db_session()
     try:
-        stock = session.query(Stock).get(stock_id)
-        if not stock:
-            return "Stock not found", 404
+        asset = session.query(Asset).get(asset_id)
+        if not asset:
+            return "Asset not found", 404
             
         # Get recent prices
-        recent_prices = session.query(DailyPrice).filter_by(stock_id=stock_id).order_by(DailyPrice.date.desc()).limit(10).all()
+        recent_prices = session.query(DailyPrice).filter_by(asset_id=asset_id).order_by(DailyPrice.date.desc()).limit(10).all()
         
-        # Get suggestions for this stock
-        suggestions = session.query(Suggestion).filter_by(stock_id=stock_id).order_by(Suggestion.date.desc()).limit(5).all()
+        # Get suggestions for this asset
+        suggestions = session.query(Suggestion).filter_by(asset_id=asset_id).order_by(Suggestion.date.desc()).limit(5).all()
         
         return render_template('stock_detail.html',
-                             stock=stock,
+                             stock=asset,
                              recent_prices=recent_prices,
                              suggestions=suggestions,
                              active='stocks')
@@ -104,21 +108,24 @@ def prices():
     session = get_db_session()
     try:
         # Get filter parameters
-        stock_id = request.args.get('stock_id', type=int)
+        asset_id = request.args.get('asset_id', type=int)
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
+        asset_type = request.args.get('type', None)
         
-        query = session.query(DailyPrice, Stock).join(Stock, DailyPrice.stock_id == Stock.id)
+        query = session.query(DailyPrice, Asset).join(Asset, DailyPrice.asset_id == Asset.id)
         
-        if stock_id:
-            query = query.filter(DailyPrice.stock_id == stock_id)
+        if asset_id:
+            query = query.filter(DailyPrice.asset_id == asset_id)
+        if asset_type:
+            query = query.filter(Asset.type == asset_type)
         if start_date:
             query = query.filter(DailyPrice.date >= datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
         if end_date:
             query = query.filter(DailyPrice.date <= datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
         
-        # Get all stocks for filter dropdown
-        stocks = session.query(Stock).order_by(Stock.symbol).all()
+        # Get all assets for filter dropdown
+        assets = session.query(Asset).order_by(Asset.symbol).all()
         
         # Paginate
         page = request.args.get('page', 1, type=int)
@@ -128,17 +135,17 @@ def prices():
         
         total_pages = max(1, (total + per_page - 1) // per_page)
         return render_template('prices.html',
-                             prices=prices,
-                             stocks=stocks,
-                             page=page,
-                             per_page=per_page,
-                             total=total,
-                             total_pages=total_pages,
-                             has_next=page < total_pages,
-                             has_prev=page > 1,
-                             start_date=start_date,
-                             end_date=end_date,
-                             active='prices')
+                               prices=prices,
+                               stocks=assets,
+                               page=page,
+                               per_page=per_page,
+                               total=total,
+                               total_pages=total_pages,
+                               has_next=page < total_pages,
+                               has_prev=page > 1,
+                               start_date=start_date,
+                               end_date=end_date,
+                               asset_type=asset_type)
     finally:
         session.close()
 
@@ -149,21 +156,24 @@ def suggestions():
     session = get_db_session()
     try:
         # Get filter parameters
-        stock_id = request.args.get('stock_id', type=int)
+        asset_id = request.args.get('asset_id', type=int)
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
+        asset_type = request.args.get('type', None)
         
-        query = session.query(Suggestion, Stock).join(Stock, Suggestion.stock_id == Stock.id)
+        query = session.query(Suggestion, Asset).join(Asset, Suggestion.asset_id == Asset.id)
         
-        if stock_id:
-            query = query.filter(Suggestion.stock_id == stock_id)
+        if asset_id:
+            query = query.filter(Suggestion.asset_id == asset_id)
+        if asset_type:
+            query = query.filter(Asset.type == asset_type)
         if start_date:
             query = query.filter(Suggestion.date >= datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
         if end_date:
             query = query.filter(Suggestion.date <= datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
         
-        # Get all stocks for filter dropdown
-        stocks = session.query(Stock).order_by(Stock.symbol).all()
+        # Get all assets for filter dropdown
+        assets = session.query(Asset).order_by(Asset.symbol).all()
         
         # Paginate
         page = request.args.get('page', 1, type=int)
@@ -173,34 +183,35 @@ def suggestions():
         
         total_pages = max(1, (total + per_page - 1) // per_page)
         return render_template('suggestions.html',
-                             suggestions=suggestions,
-                             stocks=stocks,
-                             page=page,
-                             per_page=per_page,
-                             total=total,
-                             total_pages=total_pages,
-                             has_next=page < total_pages,
-                             has_prev=page > 1,
-                             start_date=start_date,
-                             end_date=end_date,
-                             active='suggestions')
+                               suggestions=suggestions,
+                               stocks=assets,
+                               page=page,
+                               per_page=per_page,
+                               total=total,
+                               total_pages=total_pages,
+                               has_next=page < total_pages,
+                               has_prev=page > 1,
+                               start_date=start_date,
+                               end_date=end_date,
+                               asset_type=asset_type)
     finally:
         session.close()
 
 @app.route('/api/stocks')
 @login_required
 def api_stocks():
-    """API endpoint to get stocks as JSON"""
+    """API endpoint to get assets as JSON"""
     session = get_db_session()
     try:
-        stocks = session.query(Stock).order_by(Stock.symbol).all()
+        assets = session.query(Asset).order_by(Asset.symbol).all()
         return jsonify([{
-            'id': stock.id,
-            'symbol': stock.symbol,
-            'name': stock.name,
-            'exchange': stock.exchange,
-            'sector': stock.sector
-        } for stock in stocks])
+            'id': asset.id,
+            'symbol': asset.symbol,
+            'name': asset.name,
+            'exchange': asset.exchange,
+            'sector': asset.sector,
+            'type': asset.type
+        } for asset in assets])
     finally:
         session.close()
 
@@ -210,18 +221,18 @@ def api_prices():
     """API endpoint to get prices as JSON"""
     session = get_db_session()
     try:
-        stock_id = request.args.get('stock_id', type=int)
+        asset_id = request.args.get('asset_id', type=int)
         days = request.args.get('days', type=int, default=30)
         
-        query = session.query(DailyPrice, Stock).join(Stock, DailyPrice.stock_id == Stock.id)
-        if stock_id:
-            query = query.filter(DailyPrice.stock_id == stock_id)
+        query = session.query(DailyPrice, Asset).join(Asset, DailyPrice.asset_id == Asset.id)
+        if asset_id:
+            query = query.filter(DailyPrice.asset_id == asset_id)
         
         prices = query.order_by(DailyPrice.date.desc()).limit(days).all()
         
         return jsonify([{
             'date': price[0].date.isoformat(),
-            'stock_symbol': price[1].symbol,
+            'asset_symbol': price[1].symbol,
             'open': price[0].open,
             'high': price[0].high,
             'low': price[0].low,
@@ -229,6 +240,35 @@ def api_prices():
             'volume': price[0].volume,
             'adj_close': price[0].adj_close
         } for price in prices])
+    finally:
+        session.close()
+
+@app.route('/mutual-funds')
+@login_required
+def mutual_funds():
+    """Display top-50 mutual fund schemes ranked by NAV-return score."""
+    session = get_db_session()
+    try:
+        # Top 50 mutual funds by score (each scored on its own latest NAV date)
+        top = (
+            session.query(Suggestion, Asset)
+            .join(Asset, Suggestion.asset_id == Asset.id)
+            .filter(Asset.type == 'mutual_fund')
+            .order_by(Suggestion.score.desc())
+            .limit(50)
+            .all()
+        )
+
+        data = []
+        for suggestion, asset in top:
+            latest_price = (
+                session.query(DailyPrice)
+                .filter(DailyPrice.asset_id == asset.id)
+                .order_by(DailyPrice.date.desc())
+                .first()
+            )
+            data.append({'asset': asset, 'price': latest_price, 'suggestion': suggestion})
+        return render_template('mutual_funds.html', assets=data, active='mutual_funds')
     finally:
         session.close()
 

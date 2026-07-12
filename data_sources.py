@@ -7,18 +7,20 @@ supports:
 
   * NSE India (``nsepy``)        — primary source (official exchange feed)
   * Yahoo Finance (``yfinance``) — secondary / fallback source
+  * Mutual Funds (``mfapi.in``)   — third source for mutual fund NAV data
 
 Relying on a single provider is fragile: rate limits, outages, or changes to a
 provider's API can silently drop stocks from the database. By abstracting each
 provider behind a common interface and falling back from one to the next, the
 fetcher becomes far more resilient — if NSE is unavailable we can still
-pull the same data from Yahoo Finance.
+pull the same data from Yahoo Finance, and mutual funds from mfapi.in.
 """
 
 from __future__ import annotations
 
 import abc
 import datetime
+import requests
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -161,9 +163,110 @@ class NSESource(DataSource):
         return None
 
 
+class MutualFundSource(DataSource):
+    """
+    Mutual fund NAV data via ``mfapi.in``.
+
+    This source fetches the latest Net Asset Value (NAV) for a given mutual
+    fund scheme. The mfapi.in API returns a JSON array of daily NAV records;
+    we extract the most recent one and convert it to an OHLCV record where
+    open = high = low = close = adj_close = NAV and volume = 0 (since NAV
+    is not a traded volume).
+    """
+
+    name = "mutual_fund"
+
+    def fetch_latest(self, symbol: str) -> Optional[OHLCV]:
+        """
+        Fetch the latest NAV for a mutual fund scheme.
+
+        ``symbol`` should be the mfapi.in scheme code (e.g., "0P0000XVTS").
+        """
+        try:
+            # mfapi.in returns a JSON array of daily NAV records
+            response = requests.get(
+                f"https://api.mfapi.in/mf/{symbol}",
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if not data or "data" not in data or not data["data"]:
+                return None
+
+            latest = data["data"][0]  # mfapi.in returns newest-first; [0] is most recent
+            nav = float(latest["nav"])
+            date_str = latest["date"]
+
+            # Parse date (format: "DD-MM-YYYY")
+            day, month, year = map(int, date_str.split("-"))
+            nav_date = datetime.date(year, month, day)
+
+            return OHLCV(
+                date=nav_date,
+                open=nav,
+                high=nav,
+                low=nav,
+                close=nav,
+                adj_close=nav,
+                volume=0.0  # NAV has no volume
+            )
+        except Exception:
+            return None
+
+    def fetch_name(self, symbol: str) -> Optional[str]:
+        """
+        Fetch the mutual fund scheme name from mfapi.in.
+        """
+        try:
+            response = requests.get(
+                f"https://api.mfapi.in/mf/{symbol}",
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if data and "meta" in data:
+                return data["meta"].get("scheme_name")
+        except Exception:
+            pass
+        return None
+
+    def fetch_history(self, symbol: str, limit: int = 60) -> List[OHLCV]:
+        """
+        Fetch the most recent ``limit`` NAV records for a scheme so that
+        scoring (which needs prior NAVs to compute returns) has history to
+        work with. mfapi.in returns records newest-first.
+        """
+        try:
+            response = requests.get(
+                f"https://api.mfapi.in/mf/{symbol}",
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            if not data or "data" not in data or not data["data"]:
+                return []
+
+            records = []
+            for rec in data["data"][:limit]:
+                nav = float(rec["nav"])
+                day, month, year = map(int, rec["date"].split("-"))
+                nav_date = datetime.date(year, month, day)
+                records.append(OHLCV(
+                    date=nav_date,
+                    open=nav, high=nav, low=nav, close=nav,
+                    adj_close=nav, volume=0.0
+                ))
+            return records
+        except Exception:
+            return []
+
+
 # Ordered list of sources tried by the fetcher. NSE is first (official
-# exchange feed); yfinance is the fallback for resilience.
-DEFAULT_SOURCES: List[DataSource] = [NSESource(), YFinanceSource()]
+# exchange feed); yfinance is the fallback for resilience; mutual funds
+# are a separate source for NAV data.
+DEFAULT_SOURCES: List[DataSource] = [NSESource(), YFinanceSource(), MutualFundSource()]
 
 
 def fetch_with_fallback(symbol: str, sources: Optional[List[DataSource]] = None) -> Optional[OHLCV]:

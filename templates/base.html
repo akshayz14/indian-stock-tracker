@@ -14,6 +14,7 @@
             <a href="/stocks" class="{% if active == 'stocks' %}active{% endif %}">Stocks</a>
             <a href="/prices" class="{% if active == 'prices' %}active{% endif %}">Prices</a>
             <a href="/suggestions" class="{% if active == 'suggestions' %}active{% endif %}">Suggestions</a>
+            <a href="/mutual-funds" class="{% if active == 'mutual_funds' %}active{% endif %}">Mutual Funds</a>
         </div>
         <form class="search" action="/stocks" method="get">
             <input type="text" name="q" placeholder="Search stocks…" value="{{ request.args.get('q','') }}">
@@ -27,6 +28,7 @@
             <a href="/stocks" class="{% if active == 'stocks' %}active{% endif %}">📈 Stocks</a>
             <a href="/prices" class="{% if active == 'prices' %}active{% endif %}">💹 Prices</a>
             <a href="/suggestions" class="{% if active == 'suggestions' %}active{% endif %}">⭐ Suggestions</a>
+            <a href="/mutual-funds" class="{% if active == 'mutual_funds' %}active{% endif %}">🏦 Mutual Funds</a>
             <div class="section-title">Data</div>
             <a href="/api/stocks">⚙ API · Stocks</a>
             <a href="/api/prices">⚙ API · Prices</a>

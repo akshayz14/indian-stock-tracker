@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Mutual Funds{% endblock %}
+{% block content %}
+<div class="page-head">
+    <h1>Mutual Funds</h1>
+    <p>Tracked schemes with latest NAV and NAV-return based score</p>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Scheme</th>
+                    <th>Latest NAV</th>
+                    <th>NAV Date</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in assets %}
+                <tr>
+                    <td class="mono">{{ loop.index }}</td>
+                    <td>
+                        <a class="link" href="/stocks/{{ entry.asset.id }}">{{ entry.asset.name }}</a>
+                        <div class="name">{{ entry.asset.symbol }}</div>
+                    </td>
+                    <td class="mono">
+                        {% if entry.price %}
+                            {{ '%.4f'|format(entry.price.close) }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td class="mono">
+                        {% if entry.price %}
+                            {{ entry.price.date }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td class="mono">
+                        {% if entry.suggestion %}
+                            <span class="pos">{{ '%.4f'|format(entry.suggestion.score) }}</span>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="empty">No mutual fund data available.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,6 +1,6 @@
 import datetime
 from data_fetcher import fetch_and_store, DEFAULT_SYMBOLS
-from scoring import generate_suggestions
+from scoring import generate_suggestions, generate_mf_suggestions
 from models import init_db, get_session, DailyPrice
 
 def main():
@@ -23,6 +23,12 @@ def main():
 
     print('Top suggestions for', target_date)
     for sym, score, reason in top:
+        print(f'{sym}: Score={score:.4f} | {reason}')
+
+    # Step 3: Generate mutual-fund suggestions (NAV-return based)
+    mf_top = generate_mf_suggestions(target_date)
+    print('Top mutual-fund suggestions for', target_date)
+    for sym, score, reason in mf_top:
         print(f'{sym}: Score={score:.4f} | {reason}')
 
 if __name__ == '__main__':
