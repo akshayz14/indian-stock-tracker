@@ -1,6 +1,6 @@
 import datetime
 from data_fetcher import fetch_and_store, DEFAULT_SYMBOLS
-from scoring import generate_suggestions, generate_mf_suggestions
+from scoring2 import generate_suggestions, generate_mf_suggestions
 from models import init_db, get_session, DailyPrice
 
 def main():

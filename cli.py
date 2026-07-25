@@ -1,6 +1,6 @@
 import argparse
 from datetime import date, timedelta
-from scoring import generate_suggestions
+from scoring2 import generate_suggestions
 from models import get_session, Suggestion, Asset
 
 def list_suggestions(target_date: date, asset_type: str = None):
@@ -13,6 +13,10 @@ def list_suggestions(target_date: date, asset_type: str = None):
     if not suggestions:
         print(f'No suggestions found for {target_date}. Generating now...')
         top = generate_suggestions(target_date)
+        if not top:
+            print(f'No scorable price data available for {target_date} '
+                  f'(prices may be missing OHLC values). Try a different date '
+                  f'or re-run the daily fetch.')
         for sym, score, reason in top:
             print(f'{sym}: Score={score:.4f} | {reason}')
     else:

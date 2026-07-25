@@ -15,9 +15,16 @@ MF_SCHEME_CODES = [
 ]
 
 DEFAULT_SYMBOLS = [
-    ('RELIANCE.NS', 'equity'),
-    ('TCS.NS', 'equity'),
-    ('HDFCBANK.NS', 'equity'),
+    ('RELIANCE.NS', 'equity'), ('TCS.NS', 'equity'), ('HDFCBANK.NS', 'equity'), ('INFY.NS', 'equity'), ('ICICIBANK.NS', 'equity'),
+    ('HINDUNILVR.NS', 'equity'), ('ITC.NS', 'equity'), ('SBIN.NS', 'equity'), ('BHARTIARTL.NS', 'equity'), ('KOTAKBANK.NS', 'equity'),
+    ('LT.NS', 'equity'), ('AXISBANK.NS', 'equity'), ('ASIANPAINT.NS', 'equity'), ('MARUTI.NS', 'equity'), ('SUNPHARMA.NS', 'equity'),
+    ('TATAMOTORS.NS', 'equity'), ('BAJFINANCE.NS', 'equity'), ('WIPRO.NS', 'equity'), ('NTPC.NS', 'equity'), ('POWERGRID.NS', 'equity'),
+    ('ONGC.NS', 'equity'), ('TATASTEEL.NS', 'equity'), ('HCLTECH.NS', 'equity'), ('ULTRACEMCO.NS', 'equity'), ('TITAN.NS', 'equity'),
+    ('ADANIPORTS.NS', 'equity'), ('BAJAJFINSV.NS', 'equity'), ('DRREDDY.NS', 'equity'), ('GRASIM.NS', 'equity'), ('CIPLA.NS', 'equity'),
+    ('EICHERMOT.NS', 'equity'), ('COALINDIA.NS', 'equity'), ('JSWSTEEL.NS', 'equity'), ('BPCL.NS', 'equity'), ('IOC.NS', 'equity'),
+    ('DIVISLAB.NS', 'equity'), ('TECHM.NS', 'equity'), ('HEROMOTOCO.NS', 'equity'), ('HDFCLIFE.NS', 'equity'), ('SBILIFE.NS', 'equity'),
+    ('INDUSINDBK.NS', 'equity'), ('BRITANNIA.NS', 'equity'), ('APOLLOHOSP.NS', 'equity'), ('M&M.NS', 'equity'), ('NESTLEIND.NS', 'equity'),
+    ('UPL.NS', 'equity'), ('SHREECEM.NS', 'equity'), ('BAJAJ-AUTO.NS', 'equity'), ('TATACONSUM.NS', 'equity'), ('ADANIENT.NS', 'equity'),
 ] + [(str(code), 'mutual_fund') for code in MF_SCHEME_CODES]
 
 # Helper to ensure an asset record exists

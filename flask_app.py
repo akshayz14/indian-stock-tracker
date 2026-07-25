@@ -50,7 +50,7 @@ def stocks():
         page = request.args.get('page', 1, type=int)
         per_page = 20
         q = request.args.get('q', '').strip()
-        asset_type = request.args.get('type', None)
+        asset_type = request.args.get('type', 'equity')
 
         assets_query = session.query(Asset)
         if asset_type:
@@ -119,6 +119,9 @@ def prices():
             query = query.filter(DailyPrice.asset_id == asset_id)
         if asset_type:
             query = query.filter(Asset.type == asset_type)
+        else:
+            # Default to stocks only (exclude mutual funds, which have NAV-only rows)
+            query = query.filter(Asset.type != 'mutual_fund')
         if start_date:
             query = query.filter(DailyPrice.date >= datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
         if end_date:

@@ -46,6 +46,9 @@ def generate_suggestions(target_date: datetime.date = None, top_n: int = 50):
     )
     suggestions = []
     for price in prices:
+        # Skip prices with missing data (e.g., delisted symbols)
+        if price.open is None or price.close is None:
+            continue
         score = calculate_score(price)
         reasoning = f"Momentum: {(price.close - price.open) / price.open:.2%}, Volume factor: {price.volume / (price.volume or 1):.2f}"
         suggestions.append((price.asset.symbol, score, reasoning))

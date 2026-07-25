@@ -39,15 +39,16 @@
             </thead>
             <tbody>
                 {% for price in prices %}
+                {% set p = price[0] %}
                 <tr>
-                    <td class="mono">{{ price[0].date }}</td>
+                    <td class="mono">{{ p.date }}</td>
                     <td><a class="link" href="/stocks/{{ price[1].id }}">{{ price[1].symbol }}</a></td>
-                    <td class="mono">{{ '%.2f'|format(price[0].open) }}</td>
-                    <td class="mono">{{ '%.2f'|format(price[0].high) }}</td>
-                    <td class="mono">{{ '%.2f'|format(price[0].low) }}</td>
-                    <td class="mono">{{ '%.2f'|format(price[0].close) }}</td>
-                    <td class="mono">{{ '{:,}'.format(price[0].volume|int) }}</td>
-                    <td class="mono">{{ '%.2f'|format(price[0].adj_close) }}</td>
+                    <td class="mono">{{ '%.2f'|format(p.open) if p.open is not none else '-' }}</td>
+                    <td class="mono">{{ '%.2f'|format(p.high) if p.high is not none else '-' }}</td>
+                    <td class="mono">{{ '%.2f'|format(p.low) if p.low is not none else '-' }}</td>
+                    <td class="mono">{{ '%.2f'|format(p.close) if p.close is not none else '-' }}</td>
+                    <td class="mono">{{ '{:,}'.format(p.volume|int) if p.volume is not none else '-' }}</td>
+                    <td class="mono">{{ '%.2f'|format(p.adj_close) if p.adj_close is not none else '-' }}</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="8" class="empty">No price records found.</td></tr>
