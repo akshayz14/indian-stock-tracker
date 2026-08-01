@@ -4,6 +4,8 @@ from sqlalchemy import text
 from models import Asset, DailyPrice, Suggestion, get_session
 import datetime
 from functools import wraps
+from nsetools import Nse  # Import NSE class
+from flask_login import login_required
 
 app = Flask(__name__)
 
@@ -17,7 +19,6 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         try:
             session = get_db_session()
-            # Test connection
             session.execute(text("SELECT 1"))
             session.close()
             return f(*args, **kwargs)
@@ -51,7 +52,7 @@ def stocks():
         per_page = 20
         q = request.args.get('q', '').strip()
         asset_type = request.args.get('type', 'equity')
-
+        
         assets_query = session.query(Asset)
         if asset_type:
             assets_query = assets_query.filter(Asset.type == asset_type)
@@ -63,17 +64,17 @@ def stocks():
         total = assets_query.count()
         assets = assets_query.order_by(Asset.symbol).offset((page - 1) * per_page).limit(per_page).all()
         total_pages = max(1, (total + per_page - 1) // per_page)
-
+        
         return render_template('stocks.html',
-                               stocks=assets,
-                               page=page,
-                               per_page=per_page,
-                               total=total,
-                               total_pages=total_pages,
-                               q=q,
-                               has_next=page < total_pages,
-                               has_prev=page > 1,
-                               asset_type=asset_type)
+            stocks=assets,
+            page=page,
+            per_page=per_page,
+            total=total,
+            total_pages=total_pages,
+            q=q,
+            has_next=page < total_pages,
+            has_prev=page > 1,
+            asset_type=asset_type)
     finally:
         session.close()
 
@@ -86,7 +87,7 @@ def stock_detail(asset_id):
         asset = session.query(Asset).get(asset_id)
         if not asset:
             return "Asset not found", 404
-            
+        
         # Get recent prices
         recent_prices = session.query(DailyPrice).filter_by(asset_id=asset_id).order_by(DailyPrice.date.desc()).limit(10).all()
         
@@ -94,10 +95,10 @@ def stock_detail(asset_id):
         suggestions = session.query(Suggestion).filter_by(asset_id=asset_id).order_by(Suggestion.date.desc()).limit(5).all()
         
         return render_template('stock_detail.html',
-                             stock=asset,
-                             recent_prices=recent_prices,
-                             suggestions=suggestions,
-                             active='stocks')
+            stock=asset,
+            recent_prices=recent_prices,
+            suggestions=suggestions,
+            active='stocks')
     finally:
         session.close()
 
@@ -138,17 +139,17 @@ def prices():
         
         total_pages = max(1, (total + per_page - 1) // per_page)
         return render_template('prices.html',
-                               prices=prices,
-                               stocks=assets,
-                               page=page,
-                               per_page=per_page,
-                               total=total,
-                               total_pages=total_pages,
-                               has_next=page < total_pages,
-                               has_prev=page > 1,
-                               start_date=start_date,
-                               end_date=end_date,
-                               asset_type=asset_type)
+            prices=prices,
+            stocks=assets,
+            page=page,
+            per_page=per_page,
+            total=total,
+            total_pages=total_pages,
+            has_next=page < total_pages,
+            has_prev=page > 1,
+            start_date=start_date,
+            end_date=end_date,
+            asset_type=asset_type)
     finally:
         session.close()
 
@@ -186,17 +187,17 @@ def suggestions():
         
         total_pages = max(1, (total + per_page - 1) // per_page)
         return render_template('suggestions.html',
-                               suggestions=suggestions,
-                               stocks=assets,
-                               page=page,
-                               per_page=per_page,
-                               total=total,
-                               total_pages=total_pages,
-                               has_next=page < total_pages,
-                               has_prev=page > 1,
-                               start_date=start_date,
-                               end_date=end_date,
-                               asset_type=asset_type)
+            suggestions=suggestions,
+            stocks=assets,
+            page=page,
+            per_page=per_page,
+            total=total,
+            total_pages=total_pages,
+            has_next=page < total_pages,
+            has_prev=page > 1,
+            start_date=start_date,
+            end_date=end_date,
+            asset_type=asset_type)
     finally:
         session.close()
 
@@ -246,6 +247,35 @@ def api_prices():
     finally:
         session.close()
 
+@app.route('/gainers-losers')
+@login_required
+def gainers_losers():
+    """Display top gainers and losers from NSE"""
+    nse = Nse()  # Initialize NSE client
+    # Format gainers and losers data for template
+    gainers_data = []
+    for stock in nse.get_top_gainers()[:15]:
+        gainers_data.append({
+            'symbol': stock['symbol'],
+            'ltp': stock['ltp'],
+            'change': stock['net_price'],
+            'pChange': stock['perChange']
+        })
+    
+    losers_data = []
+    for stock in nse.get_top_losers()[:15]:
+        losers_data.append({
+            'symbol': stock['symbol'],
+            'ltp': stock['ltp'],
+            'change': stock['net_price'],
+            'pChange': stock['perChange']
+        })
+    
+    return render_template('gainers_losers.html',
+        gainers=gainers_data,
+        losers=losers_data,
+        active='gainers_losers')
+
 @app.route('/mutual-funds')
 @login_required
 def mutual_funds():
@@ -261,7 +291,7 @@ def mutual_funds():
             .limit(50)
             .all()
         )
-
+        
         data = []
         for suggestion, asset in top:
             latest_price = (
