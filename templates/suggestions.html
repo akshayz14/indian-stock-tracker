@@ -26,6 +26,7 @@
     </div>
     <button class="btn" type="submit">Apply Filters</button>
     <a class="btn secondary" href="/suggestions">Reset</a>
+    <button class="btn secondary" onmouseenter="showHint()" onmouseleave="hideHint()">Hint</button>
 </form>
 
 <div class="card">
@@ -63,5 +64,18 @@
         <span class="disabled">Next →</span>
         {% endif %}
     </div>
-</div>
+    <div id="hint-box" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#fff; border:1px solid #ccc; padding:10px; max-width:400px; z-index:1000;"></div>
+    </div>
+<script>
+function showHint() {
+    const hintText = "Momentum: Measures the strength of price movement over time.<br>Volume: Indicates the number of shares traded, reflecting market interest.<br>Close Strength: Evaluates the closing price relative to the day's range.<br>Score: Combines momentum, volume, and close strength into a single ranking metric.";
+    const box = document.getElementById('hint-box');
+    box.style.display = 'block';
+    box.innerHTML = hintText;
+}
+function hideHint() {
+    const box = document.getElementById('hint-box');
+    box.style.display = 'none';
+}
+</script>
 {% endblock %}

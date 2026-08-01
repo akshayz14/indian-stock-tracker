@@ -101,6 +101,7 @@ Then open **http://localhost:8080** in your browser.
 
 > Note: Port 5000 is often occupied by macOS AirPlay Receiver, so the app defaults to **8080**. To use a different port, edit the `port=` value in the `app.run(...)` call at the bottom of `flask_app.py`, or run with an environment override.
 
+# To remove unwanted errors or start afresh dothe following : 
 # Delete the existing database file
 rm -f stocks.db
 
