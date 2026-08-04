@@ -5,7 +5,11 @@ from data_sources import fetch_with_fallback, resolve_name, DEFAULT_SOURCES, Mut
 
 # Default list of symbols to track
 # Each entry is a tuple: (symbol, type)
-# 50 valid mfapi.in scheme codes (mutual funds) + a few equities for context.
+# 50 valid mfapi.in scheme codes (mutual funds) + Nifty 50 equities fetched from NSE
+import requests
+import io
+import pandas as pd
+
 MF_SCHEME_CODES = [
     119000, 119001, 119002, 119003, 119004, 119005, 119006, 119007, 119008, 119009,
     119010, 119011, 119012, 119013, 119014, 119015, 119016, 119017, 119018, 119019,
@@ -14,18 +18,55 @@ MF_SCHEME_CODES = [
     119040, 119041, 119042, 119043, 119044, 119045, 119046, 119047, 119048, 119049,
 ]
 
-DEFAULT_SYMBOLS = [
-    ('RELIANCE.NS', 'equity'), ('TCS.NS', 'equity'), ('HDFCBANK.NS', 'equity'), ('INFY.NS', 'equity'), ('ICICIBANK.NS', 'equity'),
-    ('HINDUNILVR.NS', 'equity'), ('ITC.NS', 'equity'), ('SBIN.NS', 'equity'), ('BHARTIARTL.NS', 'equity'), ('KOTAKBANK.NS', 'equity'),
-    ('LT.NS', 'equity'), ('AXISBANK.NS', 'equity'), ('ASIANPAINT.NS', 'equity'), ('MARUTI.NS', 'equity'), ('SUNPHARMA.NS', 'equity'),
-    ('TMPV.NS', 'equity'), ('BAJFINANCE.NS', 'equity'), ('WIPRO.NS', 'equity'), ('NTPC.NS', 'equity'), ('POWERGRID.NS', 'equity'),
-    ('ONGC.NS', 'equity'), ('TATASTEEL.NS', 'equity'), ('HCLTECH.NS', 'equity'), ('ULTRACEMCO.NS', 'equity'), ('TITAN.NS', 'equity'),
-    ('ADANIPORTS.NS', 'equity'), ('BAJAJFINSV.NS', 'equity'), ('DRREDDY.NS', 'equity'), ('GRASIM.NS', 'equity'), ('CIPLA.NS', 'equity'),
-    ('EICHERMOT.NS', 'equity'), ('COALINDIA.NS', 'equity'), ('JSWSTEEL.NS', 'equity'), ('BPCL.NS', 'equity'), ('IOC.NS', 'equity'),
-    ('DIVISLAB.NS', 'equity'), ('TECHM.NS', 'equity'), ('HEROMOTOCO.NS', 'equity'), ('HDFCLIFE.NS', 'equity'), ('SBILIFE.NS', 'equity'),
-    ('INDUSINDBK.NS', 'equity'), ('BRITANNIA.NS', 'equity'), ('APOLLOHOSP.NS', 'equity'), ('M&M.NS', 'equity'), ('NESTLEIND.NS', 'equity'),
-    ('UPL.NS', 'equity'), ('SHREECEM.NS', 'equity'), ('BAJAJ-AUTO.NS', 'equity'), ('TATACONSUM.NS', 'equity'), ('ADANIENT.NS', 'equity'),
-] + [(str(code), 'mutual_fund') for code in MF_SCHEME_CODES]
+def get_nifty50_symbols():
+    """
+    Fetch Nifty 50 symbols from NSE India.
+    Returns a list of symbols (without .NS suffix).
+    """
+    print("Fetching Nifty 50 symbols from NSE...")
+    url = 'https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv'
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(url, timeout=30, headers=headers)
+        response.raise_for_status()
+        df = pd.read_csv(io.StringIO(response.text))
+        nse_symbols = df['Symbol'].tolist()
+        print(f"Successfully fetched {len(nse_symbols)} Nifty 50 symbols.")
+        return nse_symbols
+    except Exception as e:
+        print(f"Failed to download Nifty 50 list from NSE: {e}")
+        # Fallback: try to use NSESource if available
+        try:
+            from data_sources import NSESource
+            # Note: NSESource.fetch_latest does not give us the list of symbols.
+            # This is just to show we tried; we'll return empty list.
+            print("NSESource available but cannot fetch constituent list; returning empty.")
+            return []
+        except ImportError:
+            print("NSESource not available either.")
+            return []
+
+def get_default_symbols():
+    """
+    Get the complete list of default symbols to track.
+    Combines Nifty 50 equities with mutual fund scheme codes.
+    """
+    # Get Nifty 50 symbols
+    nifty50_symbols = get_nifty50_symbols()
+    
+    # Create equity symbols from Nifty 50 (append .NS suffix for yfinance)
+    equity_symbols = [(f"{symbol}.NS", 'equity') for symbol in nifty50_symbols]
+    
+    # Add mutual fund symbols
+    mutual_fund_symbols = [(str(code), 'mutual_fund') for code in MF_SCHEME_CODES]
+    
+    # Combine and return
+    return equity_symbols + mutual_fund_symbols
+
+# Get the default symbols
+DEFAULT_SYMBOLS = get_default_symbols()
 
 # Helper to ensure an asset record exists
 def get_or_create_asset(session: Session, symbol: str, name: str = None, exchange: str = None, sector: str = None, asset_type: str = 'equity'):
