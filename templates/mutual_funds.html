@@ -28,7 +28,7 @@
                     </td>
                     <td class="mono">
                         {% if entry.price %}
-                            {{ '%.4f'|format(entry.price.close) }}
+                            ₹{{ '%.4f'|format(entry.price.close) }}
                         {% else %}
                             N/A
                         {% endif %}
