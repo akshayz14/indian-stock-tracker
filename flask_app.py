@@ -19,6 +19,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         try:
             session = get_db_session()
+            # Simple database connection test
             session.execute(text("SELECT 1"))
             session.close()
             return f(*args, **kwargs)
@@ -63,6 +64,17 @@ def stocks():
             )
         total = assets_query.count()
         assets = assets_query.order_by(Asset.symbol).offset((page - 1) * per_page).limit(per_page).all()
+        
+        # Add latest price to each asset
+        for asset in assets:
+            latest_price = (
+                session.query(DailyPrice)
+                .filter(DailyPrice.asset_id == asset.id)
+                .order_by(DailyPrice.date.desc())
+                .first()
+            )
+            asset.latest_price = latest_price.close if latest_price is not None else 0.0
+            
         total_pages = max(1, (total + per_page - 1) // per_page)
         
         return render_template('stocks.html',

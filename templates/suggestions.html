@@ -12,7 +12,7 @@
         <select name="stock_id" id="stock_id">
             <option value="">All Stocks</option>
             {% for stock in stocks %}
-            <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.symbol }}</option>
+            <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.name }}</option>
             {% endfor %}
         </select>
     </div>
@@ -40,7 +40,7 @@
                 <tr>
                     <td class="mono">{{ (page - 1) * per_page + loop.index }}</td>
                     <td class="mono">{{ suggestion[0].date }}</td>
-                    <td><a class="link" href="/stocks/{{ suggestion[1].id }}">{{ suggestion[1].symbol }}</a></td>
+                    <td><a class="link" href="/stocks/{{ suggestion[1].id }}">{{ suggestion[1].name }}</a></td>
                     <td class="mono"><span class="pos">{{ '%.4f'|format(suggestion[0].score) }}</span></td>
                     <td>{{ suggestion[0].reasoning }}</td>
                 </tr>

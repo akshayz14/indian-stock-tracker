@@ -30,12 +30,36 @@
                 {% for price in recent_prices %}
                 <tr>
                     <td class="mono">{{ price.date }}</td>
-                    <td class="mono">{{ '%.2f'|format(price.open) }}</td>
-                    <td class="mono">{{ '%.2f'|format(price.high) }}</td>
-                    <td class="mono">{{ '%.2f'|format(price.low) }}</td>
-                    <td class="mono">{{ '%.2f'|format(price.close) }}</td>
-                    <td class="mono">{{ '{:,}'.format(price.volume|int) }}</td>
-                    <td class="mono">{{ '%.2f'|format(price.adj_close) }}</td>
+                    {% if price.open is not none %}
+                        <td class="mono">{{ '%.2f'|format(price.open) }}</td>
+                    {% else %}
+                        <td class="mono">-</td>
+                    {% endif %}
+                    {% if price.high is not none %}
+                        <td class="mono">{{ '%.2f'|format(price.high) }}</td>
+                    {% else %}
+                        <td class="mono">-</td>
+                    {% endif %}
+                    {% if price.low is not none %}
+                        <td class="mono">{{ '%.2f'|format(price.low) }}</td>
+                    {% else %}
+                        <td class="mono">-</td>
+                    {% endif %}
+                    {% if price.close is not none %}
+                        <td class="mono">{{ '%.2f'|format(price.close) }}</td>
+                    {% else %}
+                        <td class="mono">-</td>
+                    {% endif %}
+                    {% if price.volume is not none %}
+                        <td class="mono">{{ '{:,}'.format(price.volume|int) }}</td>
+                    {% else %}
+                        <td class="mono">-</td>
+                    {% endif %}
+                    {% if price.adj_close is not none %}
+                        <td class="mono">{{ '%.2f'|format(price.adj_close) }}</td>
+                    {% else %}
+                        <td class="mono">-</td>
+                    {% endif %}
                 </tr>
                 {% else %}
                 <tr><td colspan="7" class="empty">No price data.</td></tr>
