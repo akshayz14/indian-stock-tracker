@@ -86,7 +86,8 @@ def stocks():
             q=q,
             has_next=page < total_pages,
             has_prev=page > 1,
-            asset_type=asset_type)
+            asset_type=asset_type,
+            active='stocks')
     finally:
         session.close()
 
@@ -161,7 +162,8 @@ def prices():
             has_prev=page > 1,
             start_date=start_date,
             end_date=end_date,
-            asset_type=asset_type)
+            asset_type=asset_type,
+            active='prices')
     finally:
         session.close()
 
@@ -209,7 +211,8 @@ def suggestions():
             has_prev=page > 1,
             start_date=start_date,
             end_date=end_date,
-            asset_type=asset_type)
+            asset_type=asset_type,
+            active='suggestions')
     finally:
         session.close()
 
