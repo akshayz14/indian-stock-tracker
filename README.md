@@ -4,7 +4,7 @@ A Python application that tracks Indian stock market data, scores stocks using a
 
 ## Features
 
-- **Data fetching**: Pulls daily OHLCV (open, high, low, close, volume) data for NSE-listed stocks from multiple providers — NSE India (`nsepy`) as the primary source, with Yahoo Finance (`yfinance`) as an automatic fallback. This makes the app resilient to a single provider being rate-limited or unavailable.
+- **Data Fetching**: Pulls daily OHLCV data for Nifty 50 equities from NSE India CSV with automatic fallback to Yahoo Finance (`yfinance`).
 - **Scoring engine**: Computes a composite score per stock per day using price momentum and a relative volume factor.
 - **Persistence**: Stores stocks, daily prices, and top suggestions in a SQLite database via SQLAlchemy ORM.
 - **CLI**: Print the top suggestions for any date.
@@ -128,7 +128,7 @@ To run the tracker automatically after market close (≈ 6:00 PM IST), add a cro
 
 ## Configuration Notes
 
-- **Tracked symbols**: `data_fetcher.py` defines `DEFAULT_SYMBOLS` — a list of tuples `(symbol, type)`. Supported types: `equity`, `mutual_fund`, `bond`, `derivative`, `commodity`. Example: `('RELIANCE.NS', 'equity')`, `('0P0000XVTS', 'mutual_fund')`. To track different or more assets, edit `DEFAULT_SYMBOLS`. More tracked assets means a larger pool of candidates for the top-50 suggestions.
+- **Tracked symbols**: `data_fetcher.py` dynamically generates `DEFAULT_SYMBOLS` from the NSE Nifty 50 constituent list (fetched via NSE CSV) combined with mutual fund scheme codes. Supported types: `equity`, `mutual_fund`. To track different or more assets, edit `MF_SCHEME_CODES` in `data_fetcher.py` or modify the Nifty 50 CSV source. More tracked assets means a larger pool of candidates for the top-50 suggestions.
 - **Data sources**: `data_sources.py` defines a `DataSource` abstraction with three implementations — `NSESource` (primary), `YFinanceSource` (fallback), and `MutualFundSource` (third source for mutual fund NAV data). `data_fetcher.SOURCES` controls the order in which they are tried. If NSE fails for a symbol, the fetcher automatically falls back to Yahoo Finance, so a single provider outage no longer drops assets from the database. To change priority or add a new provider, edit `DEFAULT_SOURCES` / `SOURCES`.
 - **Suggestion date**: `run_daily.py` generates suggestions for the **latest date that has price data** in the DB (not a hardcoded "yesterday"), so it always matches the data that was just fetched.
 - **Scoring**: Defined in `scoring.py` as `momentum * 0.7 + volume_factor * 0.3`. Tune the weights or add factors (e.g. from `scikit-learn`) as needed.

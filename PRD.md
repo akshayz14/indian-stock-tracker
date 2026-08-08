@@ -15,7 +15,7 @@ Provide a lightweight, automated system for Indian investors to fetch daily mark
 
 | # | Feature | Description |
 |---|---------|-------------|
-| 1 | **Data Fetching** | Pull OHLCV data from NSE India (`nsepy`) with automatic fallback to Yahoo Finance (`yfinance`). |
+| 1 | **Data Fetching** | Pull OHLCV data for Nifty 50 equities fetched dynamically from NSE India CSV with automatic fallback to Yahoo Finance (`yfinance`). |
 | 2 | **Scoring Engine** | Compute a composite score (momentum × 0.7 + volume_factor × 0.3) and generate top‑N suggestions. |
 | 3 | **Persistence** | Store stocks, daily prices, and suggestions in a local SQLite database via SQLAlchemy. |
 | 4 | **CLI** | `python cli.py [--date YYYY‑MM‑DD]` prints top suggestions for a given date. |

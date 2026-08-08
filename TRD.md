@@ -19,7 +19,7 @@
 ### 2. Data Flow
 
 1. **Daily Job** (`run_daily.py`)
-   - Calls `data_fetcher.fetch_and_store()` → iterates `DEFAULT_SYMBOLS`.
+   - Calls `data_fetcher.fetch_and_store()` → iterates `DEFAULT_SYMBOLS`, dynamically generated from NSE Nifty 50 symbols and mutual fund codes.
    - For each symbol, tries `SOURCES` in order (`NSESource` → `YFinanceSource` → `MutualFundSource`).
    - Inserts/updates `DailyPrice` rows.
 2. **Scoring** (`scoring.generate_suggestions()`)
@@ -70,7 +70,7 @@ Python ≥ 3.10 required.
 
 | File / Variable | Purpose |
 |-----------------|---------|
-| `data_fetcher.DEFAULT_SYMBOLS` | List of `(symbol, type)` tuples to track. |
+| `data_fetcher.DEFAULT_SYMBOLS` | Dynamically generated list of `(symbol, type)` tuples, including Nifty 50 equities and mutual fund scheme codes. |
 | `data_fetcher.SOURCES` | Ordered list of `DataSource` instances for fallback. |
 | `scoring.MOMENTUM_WEIGHT`, `VOLUME_WEIGHT` | Scoring weights (default 0.7 / 0.3). |
 | `flask_app.py` port | Default 8080 (avoid macOS AirPlay on 5000). |
@@ -152,4 +152,4 @@ Python ≥ 3.10 required.
 ---
 
 *Document Version: 1.0*  
-*Last Updated: 2026-07-25*
+*Last Updated: 2026-08-04*
