@@ -14,3 +14,4 @@ matplotlib
 seaborn
 plotly
 gunicorn
+flask_login
