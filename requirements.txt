@@ -13,3 +13,4 @@ APScheduler
 matplotlib
 seaborn
 plotly
+gunicorn
