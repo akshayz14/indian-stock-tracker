@@ -1,0 +1,7 @@
+venv/
+.venv/
+.DS_Store
+# Ignore all compiled Python files
+*.pyc
+__pycache__/
+

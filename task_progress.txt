@@ -1,0 +1,8 @@
+- [x] Explore UI, scoring, and run flow
+- [x] Add mutual-fund scoring function
+- [x] Add MF suggestions generator
+- [x] Add /mutual-funds route in flask_app.py
+- [x] Create mutual_funds.html template
+- [ ] Add nav/sidebar links for Mutual Funds
+- [ ] Wire MF suggestions into run_daily.py
+- [ ] Test the new tab and scoring

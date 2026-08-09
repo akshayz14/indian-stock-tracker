@@ -52,7 +52,9 @@ body {
 .topnav .navlinks { display: flex; gap: 4px; }
 .topnav .navlinks a {
   text-decoration: none;
-  color: var(--muted);
+   color: var(--text);
+   font-size: 18px;
+   font-weight: 600;
   font-weight: 500;
   padding: 8px 14px;
   border-radius: 8px;
@@ -258,3 +260,35 @@ table.data .name { color: var(--muted); font-size: 12px; }
 .kv .v { font-size: 18px; font-weight: 700; }
 
 .empty { text-align: center; color: var(--muted); padding: 40px; }
+
+/* Tooltip button and tooltip */
+.tooltip-btn {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: help;
+  padding: 4px;
+  line-height: 1;
+}
+
+.tooltip-btn:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: normal;
+  width: 400px;
+  opacity: 1;
+  pointer-events: none;
+  z-index: 10;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow);
+}

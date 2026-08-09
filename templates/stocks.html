@@ -12,7 +12,7 @@
             <thead>
                 <tr>
                     <th>Symbol</th>
-                    <th>Name</th>
+                    <th>Current Price</th>
                     <th>Exchange</th>
                     <th>Sector</th>
                     <th></th>
@@ -22,7 +22,7 @@
                 {% for stock in stocks %}
                 <tr>
                     <td><span class="sym">{{ stock.symbol }}</span></td>
-                    <td class="name">{{ stock.name }}</td>
+                    <td class="price">₹{{ '%.2f'|format(stock.latest_price) if stock.latest_price is not none else 'N/A' }}</td>
                     <td><span class="badge">{{ stock.exchange }}</span></td>
                     <td>{{ stock.sector|default('-') }}</td>
                     <td><a class="link" href="/stocks/{{ stock.id }}">View →</a></td>

@@ -12,7 +12,7 @@
         <select name="stock_id" id="stock_id">
             <option value="">All Stocks</option>
             {% for stock in stocks %}
-            <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.symbol }}</option>
+            <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.name }}</option>
             {% endfor %}
         </select>
     </div>
@@ -26,6 +26,7 @@
     </div>
     <button class="btn" type="submit">Apply Filters</button>
     <a class="btn secondary" href="/suggestions">Reset</a>
+    <button class="btn secondary" onmouseenter="showHint()" onmouseleave="hideHint()">Hint</button>
 </form>
 
 <div class="card">
@@ -39,7 +40,7 @@
                 <tr>
                     <td class="mono">{{ (page - 1) * per_page + loop.index }}</td>
                     <td class="mono">{{ suggestion[0].date }}</td>
-                    <td><a class="link" href="/stocks/{{ suggestion[1].id }}">{{ suggestion[1].symbol }}</a></td>
+                    <td><a class="link" href="/stocks/{{ suggestion[1].id }}">{{ suggestion[1].name }}</a></td>
                     <td class="mono"><span class="pos">{{ '%.4f'|format(suggestion[0].score) }}</span></td>
                     <td>{{ suggestion[0].reasoning }}</td>
                 </tr>
@@ -63,5 +64,18 @@
         <span class="disabled">Next →</span>
         {% endif %}
     </div>
-</div>
+    <div id="hint-box" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#fff; border:1px solid #ccc; padding:10px; max-width:400px; z-index:1000;"></div>
+    </div>
+<script>
+function showHint() {
+    const hintText = "Momentum: Measures the strength of price movement over time.<br>Volume: Indicates the number of shares traded, reflecting market interest.<br>Close Strength: Evaluates the closing price relative to the day's range.<br>Score: Combines momentum, volume, and close strength into a single ranking metric.";
+    const box = document.getElementById('hint-box');
+    box.style.display = 'block';
+    box.innerHTML = hintText;
+}
+function hideHint() {
+    const box = document.getElementById('hint-box');
+    box.style.display = 'none';
+}
+</script>
 {% endblock %}
