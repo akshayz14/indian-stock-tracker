@@ -1,0 +1,52 @@
+name: Update Stock Data
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stock-data-update
+  cancel-in-progress: false
+
+jobs:
+  update-stock-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily update
+        run: python run_daily.py
+
+      - name: Check for database changes
+        id: database-change
+        run: |
+          if git diff --quiet -- stocks.db; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "stocks.db did not change"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "stocks.db changed"
+          fi
+
+      - name: Commit and push database
+        if: steps.database-change.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stocks.db
+          git commit -m "Update stock data $(date -u +%Y-%m-%d)"
+          git push
