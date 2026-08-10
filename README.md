@@ -72,7 +72,7 @@ Fetches the latest data for the configured symbols, scores them, and stores the 
 python run_daily.py
 ```
 
-This will:
+This action will:
 1. Ensure the DB and tables exist.
 2. Fetch daily prices for the tracked symbols (e.g. `RELIANCE.NS`, `TCS.NS`, `HDFCBANK.NS`, `INFY.NS`, `ICICIBANK.NS`).
 3. Generate and store the top-50 suggestions for yesterday.
