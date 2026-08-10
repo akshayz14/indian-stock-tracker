@@ -5,7 +5,6 @@ from models import Asset, DailyPrice, Suggestion, get_session
 import datetime
 from functools import wraps
 from nsetools import Nse  # Import NSE class
-from flask_login import login_required
 
 app = Flask(__name__)
 
