@@ -4,7 +4,7 @@
 
 | Layer | Components | Responsibility |
 |-------|------------|----------------|
-| **Data Layer** | SQLAlchemy ORM models (`Stock`, `DailyPrice`, `Suggestion`) | Persist stocks, daily OHLCV prices, and generated suggestions in SQLite. |
+| **Data Layer** | SQLAlchemy ORM models (`Asset`, `DailyPrice`, `Suggestion`) | Persist assets, daily OHLCV prices, and generated suggestions in SQLite. |
 | **Service Layer** | `data_sources.py` – `DataSource` abstraction with implementations: `NSESource`, `YFinanceSource`, `MutualFundSource` | Fetch raw market data from external providers with automatic fallback. |
 | **Business Logic** | `scoring.py` – `calculate_momentum()`, `calculate_volume_factor()`, `generate_suggestions()` | Compute composite scores and persist top‑N suggestions. |
 | **Orchestration** | `data_fetcher.py` – `fetch_and_store()`; `run_daily.py` – end‑to‑end daily job | Coordinate fetch → store → score → output. |

@@ -46,5 +46,5 @@ Provide a lightweight, automated system for Indian investors to fetch daily mark
 
 ---
 
-*Document Version: 1.0*  
-*Last Updated: 2026-07-25*
+*Document Version: 1.1*  
+*Last Updated: 2026-10-08*

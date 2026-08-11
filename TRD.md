@@ -7,7 +7,7 @@
 
 | Layer | Components | Responsibility |
 |-------|------------|----------------|
-| **Data Layer** | SQLAlchemy ORM models (`Stock`, `DailyPrice`, `Suggestion`) | Persist stocks, daily OHLCV prices, and generated suggestions in SQLite. |
+| **Data Layer** | SQLAlchemy ORM models (`Asset`, `DailyPrice`, `Suggestion`) | Persist assets, daily OHLCV prices, and generated suggestions in SQLite. |
 | **Service Layer** | `data_sources.py` – `DataSource` abstraction with implementations: `NSESource`, `YFinanceSource`, `MutualFundSource` | Fetch raw market data from external providers with automatic fallback. |
 | **Business Logic** | `scoring.py` – `calculate_momentum()`, `calculate_volume_factor()`, `generate_suggestions()` | Compute composite scores and persist top‑N suggestions. |
 | **Orchestration** | `data_fetcher.py` – `fetch_and_store()`; `run_daily.py` – end‑to‑end daily job | Coordinate fetch → store → score → output. |
@@ -37,9 +37,9 @@
 
 | Table | Key Columns | Indexes |
 |-------|-------------|---------|
-| `stocks` | `id` (PK), `symbol`, `name`, `type` | `symbol` (unique) |
-| `daily_prices` | `id` (PK), `stock_id` (FK), `date`, `open`, `high`, `low`, `close`, `volume` | `(stock_id, date)` unique |
-| `suggestions` | `id` (PK), `date`, `stock_id` (FK), `score`, `reasoning` | `(date, stock_id)` unique |
+| `assets` | `id` (PK), `symbol`, `name`, `type` | `symbol` (unique) |
+| `daily_prices` | `id` (PK), `asset_id` (FK), `date`, `open`, `high`, `low`, `close`, `volume` | `(asset_id, date)` unique |
+| `suggestions` | `id` (PK), `date`, `asset_id` (FK), `score`, `reasoning` | `(date, asset_id)` unique |
 
 ---
 
@@ -53,13 +53,9 @@ nsepy>=0.7
 requests>=2.31
 beautifulsoup4>=4.12
 python-dotenv>=1.0
-scikit-learn>=1.3
 flask>=3.0
 sqlalchemy>=2.0
 apscheduler>=3.10
-matplotlib>=3.7
-seaborn>=0.12
-plotly>=5.15
 ```
 
 Python ≥ 3.10 required.
@@ -82,7 +78,7 @@ Python ≥ 3.10 required.
 
 - No secrets required; all data sources are public.
 - SQLite file (`stocks.db`) stored locally; no network exposure.
-- Flask binds to `127.0.0.1` only.
+- Flask binds to `0.0.0.0` on port 8080 in development mode; production deployment should use a reverse proxy (e.g., gunicorn + nginx) with restricted access.
 
 ---
 
@@ -151,5 +147,5 @@ Python ≥ 3.10 required.
 
 ---
 
-*Document Version: 1.0*  
-*Last Updated: 2026-08-04*
+*Document Version: 1.1*  
+*Last Updated: 2026-10-08*
