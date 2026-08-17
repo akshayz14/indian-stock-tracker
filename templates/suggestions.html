@@ -68,7 +68,7 @@
     </div>
 <script>
 function showHint() {
-    const hintText = "Momentum: Measures the strength of price movement over time.<br>Volume: Indicates the number of shares traded, reflecting market interest.<br>Close Strength: Evaluates the closing price relative to the day's range.<br>Score: Combines momentum, volume, and close strength into a single ranking metric.";
+    const hintText = "<b>Momentum</b> – How much and in which direction the stock price moved today. A positive number means the price went up; a larger number means a stronger upward push.<br><br><b>Volume</b> – The total number of shares traded during the day. High volume means many investors are paying attention and trading actively, which often signals a stronger move.<br><br><b>Close Strength</b> – Where the stock closed relative to its high and low for the day. Closing near the high is bullish (buyers won the day); closing near the low is bearish (sellers won).<br><br><b>Score</b> – A single number that combines momentum, volume, and close strength (plus a few extra checks) into one ranking. Higher scores mean the stock shows stronger positive signals today. A higher score suggests the stock may continue moving upward tomorrow, while a lower score indicates weaker momentum and potential downward pressure. Use the score as a quick filter to prioritize stocks with the strongest bullish signals for your next day's trading decisions.";
     const box = document.getElementById('hint-box');
     box.style.display = 'block';
     box.innerHTML = hintText;
