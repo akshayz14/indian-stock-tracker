@@ -336,5 +336,38 @@ def mutual_funds():
     finally:
         session.close()
 
+
+@app.route('/top-mutual-funds')
+@login_required
+def top_mutual_funds():
+    """Display top 50 mutual funds by score from stocks.db."""
+    session = get_session()
+    try:
+        # Get top 50 mutual funds by score from stocks.db
+        # Mutual funds are stored in the assets table with type='mutual_fund'
+        top = (
+            session.query(
+                Asset,
+                Suggestion
+            )
+            .join(Suggestion, Suggestion.asset_id == Asset.id)
+            .filter(Asset.type == 'mutual_fund')
+            .order_by(Suggestion.score.desc())
+            .limit(50)
+            .all()
+        )
+        
+        # Prepare data for template - just asset info and suggestion score
+        data = []
+        for asset, suggestion in top:
+            data.append({
+                'asset': asset,
+                'suggestion': suggestion
+            })
+        
+        return render_template('top_mutual_funds.html', assets=data, active='top-mutual-funds')
+    finally:
+        session.close()
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

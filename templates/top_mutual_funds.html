@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Top 50 Mutual Funds{% endblock %}
+{% block content %}
+<div class="page-head">
+    <h1>Top 50 Mutual Funds</h1>
+    <p>Top 50 mutual funds by score from stocks.db</p>
+</div>
+
+<div class="fund-filters">
+    <a href="/mutual-funds?category=large-cap" class="btn secondary">Large Cap</a>
+    <a href="/mutual-funds?category=mid-cap" class="btn secondary">Mid Cap</a>
+    <a href="/mutual-funds?category=small-cap" class="btn secondary">Small Cap</a>
+    <a href="/mutual-funds?category=debt" class="btn secondary">Debt Funds</a>
+    <a href="/top-mutual-funds" class="btn primary">Top 50 Funds</a>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Scheme</th>
+                    <th>Symbol</th>
+                    <th>Fund House</th>
+                    <th>Category</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in assets %}
+                <tr>
+                    <td class="mono">{{ loop.index }}</td>
+                    <td>
+                        <a class="link" href="/top-mutual-funds">{{ entry.asset.name }}</a>
+                        <div class="name">{{ entry.asset.symbol }}</div>
+                    </td>
+                    <td>{{ entry.asset.symbol }}</td>
+                    <td>{{ entry.asset.exchange }}</td>
+                    <td>{{ entry.asset.type }}</td>
+                    <td class="mono">
+                        {% if entry.suggestion %}
+                            <span class="pos">{{ '%.4f'|format(entry.suggestion.score) }}</span>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="empty">No mutual fund data available.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+</arg_value>
+<task_progress>
+- [x] Verify mutual fund data exists in stocks.db (46 entries)
+- [x] Check structure of mutual fund data in stocks.db
+- [x] Check if suggestions exist for mutual funds
+- [x] Add button to mutual_funds.html
+- [x] Implement route to fetch top 50 funds from stocks.db
+- [x] Create template for top 50 funds display
+- [ ] Test functionality
+</task_progress>
+</write_to_file></tool_call>

@@ -247,6 +247,50 @@ table.data .name { color: var(--muted); font-size: 11px; }
   flex: 1;
   min-width: 100px;
   text-align: center;
+  transition: all 0.2s ease;
+}
+.fund-filters .btn.active {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+}
+.fund-filters .btn.secondary.active {
+  background: var(--brand);
+  color: #fff;
+}
+.fund-filters .btn.secondary:not(.active):hover {
+  background: var(--bg);
+  border-color: var(--border);
+  transform: translateY(-1px);
+}
+.fund-filters .btn.primary {
+  background: var(--brand);
+  color: #fff;
+  transition: all 0.2s ease;
+}
+.fund-filters .btn.primary:hover {
+  background: var(--brand-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4);
+}
+.fund-filters .btn.primary:active {
+  transform: scale(0.98);
+}
+.fund-filters .btn.secondary {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+.fund-filters .btn.secondary:hover {
+  background: var(--bg);
+  border-color: var(--border);
+  transform: translateY(-1px);
+}
+.fund-filters .btn.secondary:active {
+  transform: scale(0.98);
 }
 
 /* Pagination */

@@ -7,11 +7,47 @@
 </div>
 
 <div class="fund-filters">
-<a href="/mutual-funds?category=large-cap" class="btn secondary">Large Cap</a>
-<a href="/mutual-funds?category=mid-cap" class="btn secondary">Mid Cap</a>
-<a href="/mutual-funds?category=small-cap" class="btn secondary">Small Cap</a>
-<a href="/mutual-funds?category=debt" class="btn secondary">Debt Funds</a>
+    <a href="/mutual-funds?category=large-cap" class="btn secondary" id="large-cap-btn">Large Cap</a>
+    <a href="/mutual-funds?category=mid-cap" class="btn secondary">Mid Cap</a>
+    <a href="/mutual-funds?category=small-cap" class="btn secondary">Small Cap</a>
+    <a href="/mutual-funds?category=debt" class="btn secondary">Debt Funds</a>
+    <a href="/top-mutual-funds" class="btn secondary">Top 50 Funds</a>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Make Large Cap the default selected category
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentCategory = urlParams.get('category');
+        if (!currentCategory) {
+            // If no category is specified, default to large-cap
+            window.history.pushState({}, '', '/mutual-funds?category=large-cap');
+            currentCategory = 'large-cap';
+        }
+        
+        // Set initial active button - only for category buttons, not Top 50 Funds
+        const categoryButtons = document.querySelectorAll('.fund-filters .btn.secondary');
+        categoryButtons.forEach(button => {
+            // Use URLSearchParams to properly parse the category from href
+            const buttonUrl = new URL(button.getAttribute('href'), window.location.origin);
+            const buttonCategory = buttonUrl.searchParams.get('category');
+            if (buttonCategory === currentCategory) {
+                button.classList.add('active');
+            }
+        });
+        
+        // Handle button click to highlight in blue
+        const buttons = document.querySelectorAll('.fund-filters .btn');
+        buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all buttons
+                buttons.forEach(btn => btn.classList.remove('active'));
+                // Add active class to clicked button
+                this.classList.add('active');
+            });
+        });
+    });
+</script>
 
 <div class="card">
     <div class="table-wrap">
