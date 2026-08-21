@@ -16,14 +16,9 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Make Large Cap the default selected category
+        // Get current category from URL
         const urlParams = new URLSearchParams(window.location.search);
-        const currentCategory = urlParams.get('category');
-        if (!currentCategory) {
-            // If no category is specified, default to large-cap
-            window.history.pushState({}, '', '/mutual-funds?category=large-cap');
-            currentCategory = 'large-cap';
-        }
+        const currentCategory = urlParams.get('category') || 'large-cap';
         
         // Set initial active button - only for category buttons, not Top 50 Funds
         const categoryButtons = document.querySelectorAll('.fund-filters .btn.secondary');

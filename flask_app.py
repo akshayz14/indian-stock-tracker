@@ -311,18 +311,16 @@ def mutual_funds():
     # Use mutual fund database session for proper category filtering
     session = get_mutual_fund_session()
     try:
-        # Get category filter from request
-        category = request.args.get('category', 'all')
+        # Get category filter from request, default to large-cap
+        category = request.args.get('category', 'large-cap')
         
         # Build query with category filter
         query = session.query(MutualFundSuggestion, MutualFundAsset)
         query = query.join(MutualFundAsset, MutualFundSuggestion.asset_id == MutualFundAsset.id)
         
-        # Apply category filter if specified
-        if category != 'all':
-            # Convert hyphen to underscore to match stored type values
-            category_underscore = category.replace('-', '_')
-            query = query.filter(MutualFundAsset.type == category_underscore)
+        # Apply category filter
+        category_underscore = category.replace('-', '_')
+        query = query.filter(MutualFundAsset.type == category_underscore)
         
         # Get top 50 by score
         top = query.order_by(MutualFundSuggestion.score.desc()).limit(50).all()
