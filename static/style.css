@@ -236,6 +236,19 @@ table.data .name { color: var(--muted); font-size: 11px; }
   width: 100%;
 }
 
+/* Fund category buttons */
+.fund-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.fund-filters .btn {
+  flex: 1;
+  min-width: 100px;
+  text-align: center;
+}
+
 /* Pagination */
 .pagination { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 14px; justify-content: center; }
 .pagination a, .pagination span {

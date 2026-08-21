@@ -6,6 +6,13 @@
     <p>Tracked schemes with latest NAV and NAV-return based score</p>
 </div>
 
+<div class="fund-filters">
+<a href="/mutual-funds?category=large-cap" class="btn secondary">Large Cap</a>
+<a href="/mutual-funds?category=mid-cap" class="btn secondary">Mid Cap</a>
+<a href="/mutual-funds?category=small-cap" class="btn secondary">Small Cap</a>
+<a href="/mutual-funds?category=debt" class="btn secondary">Debt Funds</a>
+</div>
+
 <div class="card">
     <div class="table-wrap">
         <table class="data">
@@ -13,8 +20,8 @@
                 <tr>
                     <th>#</th>
                     <th>Scheme</th>
-                    <th>Latest NAV</th>
-                    <th>NAV Date</th>
+                    <th>Fund House</th>
+                    <th>Category</th>
                     <th>Score</th>
                 </tr>
             </thead>
@@ -23,23 +30,11 @@
                 <tr>
                     <td class="mono">{{ loop.index }}</td>
                     <td>
-                        <a class="link" href="/stocks/{{ entry.asset.id }}">{{ entry.asset.name }}</a>
-                        <div class="name">{{ entry.asset.symbol }}</div>
+                        <a class="link" href="/mutual-funds">{{ entry.asset.scheme_name }}</a>
+                        <div class="name">{{ entry.asset.scheme_code }}</div>
                     </td>
-                    <td class="mono">
-                        {% if entry.price %}
-                            ₹{{ '%.4f'|format(entry.price.close) }}
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </td>
-                    <td class="mono">
-                        {% if entry.price %}
-                            {{ entry.price.date }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
+                    <td>{{ entry.asset.fund_house }}</td>
+                    <td>{{ entry.asset.type }}</td>
                     <td class="mono">
                         {% if entry.suggestion %}
                             <span class="pos">{{ '%.4f'|format(entry.suggestion.score) }}</span>

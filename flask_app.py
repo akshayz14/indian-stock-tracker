@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from models import Asset, DailyPrice, Suggestion, get_session
+from models import Asset, DailyPrice, Suggestion, MutualFundAsset, MutualFundSuggestion, get_session, get_mutual_fund_session, get_mutual_fund_engine
 import datetime
 from functools import wraps
 from nsetools import Nse  # Import NSE class
@@ -25,6 +25,20 @@ def login_required(f):
         except Exception as e:
             return f"Database connection error: {str(e)}", 500
     return decorated_function
+
+# Initialize mutual funds database on startup
+def init_mutual_funds_db():
+    """Initialize the mutual funds database and create tables if they don't exist."""
+    try:
+        engine = get_mutual_fund_engine()
+        from models import Base
+        Base.metadata.create_all(engine)
+        print("Mutual funds database tables initialized successfully.")
+    except Exception as e:
+        print(f"Warning: Could not initialize mutual funds database: {e}")
+
+# Run initialization on import
+init_mutual_funds_db()
 
 @app.route('/')
 @login_required
@@ -293,29 +307,32 @@ def gainers_losers():
 @app.route('/mutual-funds')
 @login_required
 def mutual_funds():
-    """Display top-50 mutual fund schemes ranked by NAV-return score."""
-    session = get_db_session()
+    """Display mutual funds with category filtering."""
+    # Use mutual fund database session for proper category filtering
+    session = get_mutual_fund_session()
     try:
-        # Top 50 mutual funds by score (each scored on its own latest NAV date)
-        top = (
-            session.query(Suggestion, Asset)
-            .join(Asset, Suggestion.asset_id == Asset.id)
-            .filter(Asset.type == 'mutual_fund')
-            .order_by(Suggestion.score.desc())
-            .limit(50)
-            .all()
-        )
+        # Get category filter from request
+        category = request.args.get('category', 'all')
         
+        # Build query with category filter
+        query = session.query(MutualFundSuggestion, MutualFundAsset)
+        query = query.join(MutualFundAsset, MutualFundSuggestion.asset_id == MutualFundAsset.id)
+        
+        # Apply category filter if specified
+        if category != 'all':
+            # Convert hyphen to underscore to match stored type values
+            category_underscore = category.replace('-', '_')
+            query = query.filter(MutualFundAsset.type == category_underscore)
+        
+        # Get top 50 by score
+        top = query.order_by(MutualFundSuggestion.score.desc()).limit(50).all()
+        
+        # Prepare data for template - just asset info and suggestion score
         data = []
         for suggestion, asset in top:
-            latest_price = (
-                session.query(DailyPrice)
-                .filter(DailyPrice.asset_id == asset.id)
-                .order_by(DailyPrice.date.desc())
-                .first()
-            )
-            data.append({'asset': asset, 'price': latest_price, 'suggestion': suggestion})
-        return render_template('mutual_funds.html', assets=data, active='mutual_funds')
+            data.append({'asset': asset, 'suggestion': suggestion})
+        
+        return render_template('mutual_funds.html', assets=data, active='mutual_funds', category=category)
     finally:
         session.close()
 
