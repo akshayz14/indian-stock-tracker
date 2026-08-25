@@ -5,6 +5,10 @@ from models import Asset, DailyPrice, Suggestion, MutualFundAsset, MutualFundSug
 import datetime
 from functools import wraps
 from nsetools import Nse  # Import NSE class
+import requests
+import json
+import os
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -366,6 +370,70 @@ def top_mutual_funds():
         return render_template('top_mutual_funds.html', assets=data, active='top-mutual-funds')
     finally:
         session.close()
+
+# Cache for mutual fund details to avoid repeated API calls
+mf_cache = {}
+CACHE_DURATION = timedelta(hours=1)  # Cache for 1 hour
+
+def get_mutual_fund_details_from_api(scheme_code):
+    """Fetch mutual fund details from API"""
+    BASE_URL = "https://api.mfapi.in/mf"
+    url = f"{BASE_URL}/{scheme_code}"
+    
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        result = response.json()
+        
+        if result.get("status") != "SUCCESS":
+            raise Exception(f"API returned failure: {result}")
+        
+        meta = result["meta"]
+        nav_history = result["data"]
+        latest_nav = nav_history[0] if nav_history else None
+        
+        return {
+            "scheme_code": meta.get("scheme_code"),
+            "scheme_name": meta.get("scheme_name"),
+            "fund_house": meta.get("fund_house"),
+            "scheme_type": meta.get("scheme_type"),
+            "scheme_category": meta.get("scheme_category"),
+            "isin_growth": meta.get("isin_growth"),
+            "isin_div_reinvestment": meta.get("isin_div_reinvestment"),
+            "latest_nav": latest_nav["nav"] if latest_nav else None,
+            "latest_nav_date": latest_nav["date"] if latest_nav else None,
+            "nav_history": nav_history
+        }
+    except Exception as e:
+        raise Exception(f"Failed to fetch mutual fund details: {str(e)}")
+
+@app.route('/mutual-funds/<scheme_code>')
+@login_required
+def mutual_fund_detail(scheme_code):
+    """Display details for a specific mutual fund with caching"""
+    # Check cache first
+    now = datetime.now()
+    if scheme_code in mf_cache:
+        cached_data, cached_time = mf_cache[scheme_code]
+        if now - cached_time < CACHE_DURATION:
+            # Return cached data
+            return render_template('mutual_fund_detail.html', 
+                                 fund=cached_data, 
+                                 active='mutual_funds',
+                                 from_cache=True)
+    
+    # Fetch from API if not in cache or cache expired
+    try:
+        fund_details = get_mutual_fund_details_from_api(scheme_code)
+        # Update cache
+        mf_cache[scheme_code] = (fund_details, now)
+        
+        return render_template('mutual_fund_detail.html', 
+                             fund=fund_details, 
+                             active='mutual_funds',
+                             from_cache=False)
+    except Exception as e:
+        return f"Error fetching mutual fund details: {str(e)}", 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
