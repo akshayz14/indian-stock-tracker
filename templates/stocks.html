@@ -11,7 +11,7 @@
         <table class="data">
             <thead>
                 <tr>
-                    <th>Symbol</th>
+                    <th>Name</th>
                     <th>Current Price</th>
                     <th>Exchange</th>
                     <th>Sector</th>
@@ -21,7 +21,7 @@
             <tbody>
                 {% for stock in stocks %}
                 <tr>
-                    <td><span class="sym">{{ stock.symbol }}</span></td>
+                    <td><span class="sym">{{ stock.name }}</span></td>
                     <td class="price">₹{{ '%.2f'|format(stock.latest_price) if stock.latest_price is not none else 'N/A' }}</td>
                     <td><span class="badge">{{ stock.exchange }}</span></td>
                     <td>{{ stock.sector|default('-') }}</td>
