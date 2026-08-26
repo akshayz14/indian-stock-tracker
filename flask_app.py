@@ -11,6 +11,10 @@ import os
 from datetime import datetime, timedelta
 from stock_search_service import StockSearchService
 
+# In-memory cache for searched stock 60-day price history (TTL: 1 hour)
+search_history_cache = {}
+SEARCH_HISTORY_CACHE_DURATION = timedelta(hours=1)
+
 app = Flask(__name__)
 
 
@@ -594,101 +598,94 @@ def mutual_fund_detail(scheme_code):
 def stock_by_symbol(symbol):
     session = get_db_session()
     try:
-        # First try exact match
+        cache_symbol = symbol.upper().strip()
+        
+        # Check cache first (freshness: 1 hour)
+        now = datetime.now()
+        cached_price_history = None
+        if cache_symbol in search_history_cache:
+            cached_data, cached_time = search_history_cache[cache_symbol]
+            if now - cached_time < SEARCH_HISTORY_CACHE_DURATION:
+                cached_price_history = cached_data
+        
+        # First try exact match in DB
         asset = session.query(Asset).filter(Asset.symbol == symbol).first()
+        if not asset and symbol.endswith('.BO'):
+            asset = session.query(Asset).filter(Asset.symbol == symbol.replace('.BO', '.NS')).first()
+        if not asset and not (symbol.endswith('.NS') or symbol.endswith('.BO')):
+            asset = session.query(Asset).filter(Asset.symbol == symbol + ".NS").first()
         
-        # If not found, try symbol variations for BSE/NSE coverage
-        if not asset:
-            if symbol.endswith('.BO'):
-                # Try .BO -> .NS conversion (BSE stock mapped to NSE)
-                asset = session.query(Asset).filter(Asset.symbol == symbol.replace('.BO', '.NS')).first()
-            elif not (symbol.endswith('.NS') or symbol.endswith('.BO')):
-                # Bare symbol, try adding .NS suffix
-                asset = session.query(Asset).filter(Asset.symbol == symbol + ".NS").first()
-        
-        # If still not found in database, fetch from Yahoo Finance and add to DB
-        if not asset:
-            from data_sources import YFinanceSource
+        # CASE 1: Asset found in DB (Nifty 50 or previously stored)
+        if asset:
+            history_mode = request.args.get('history', 'latest60')
+            if history_mode == 'all':
+                show_latest_days = None
+            else:
+                show_latest_days = 60
             
-            # Try the symbol as-is (with .NS/.BO suffix)
-            yf_source = YFinanceSource()
-            ohlcv = yf_source.fetch_latest(symbol)
-            name = yf_source.fetch_name(symbol)
-            
-            # If that fails and symbol has suffix, try without suffix
-            if not ohlcv and (symbol.endswith('.NS') or symbol.endswith('.BO')):
-                base_symbol = symbol.replace('.NS', '').replace('.BO', '')
-                ohlcv = yf_source.fetch_latest(base_symbol)
-                name = yf_source.fetch_name(base_symbol)
-                # Use the base symbol as the asset symbol if we got data
-                if ohlcv and not name:
-                    name = base_symbol
-            
-            if ohlcv and name:
-                # Determine exchange from symbol
-                exchange = 'NSE' if symbol.endswith('.NS') or not (symbol.endswith('.NS') or symbol.endswith('.BO')) else 'BSE'
-                if symbol.endswith('.BO'):
-                    exchange = 'BSE'
-                elif symbol.endswith('.NS'):
-                    exchange = 'NSE'
-                
-                # Create asset record
-                asset = Asset(
-                    symbol=symbol,
-                    name=name,
-                    exchange=exchange,
-                    sector='Unknown',  # Could be enhanced with yfinance info
-                    type='equity'
-                )
-                session.add(asset)
-                session.flush()  # Get the ID
-                
-                # Fetch 60 days of historical data from Yahoo Finance
-                history_records = yf_source.fetch_history(symbol, limit=60)
-                # If we couldn't get history with the original symbol, try without suffix
-                if not history_records and (symbol.endswith('.NS') or symbol.endswith('.BO')):
-                    base_symbol = symbol.replace('.NS', '').replace('.BO', '')
-                    history_records = yf_source.fetch_history(base_symbol, limit=60)
-                
-                # Add all historical price records
-                for ohlcv_record in history_records:
-                    price = DailyPrice(
-                        asset_id=asset.id,
-                        date=ohlcv_record.date,
-                        open=ohlcv_record.open,
-                        high=ohlcv_record.high,
-                        low=ohlcv_record.low,
-                        close=ohlcv_record.close,
-                        adj_close=ohlcv_record.adj_close,
-                        volume=ohlcv_record.volume
-                    )
-                    session.add(price)
-                
-                session.commit()
-                
-                # Fetch the price history for display (now from database)
-                history_mode = request.args.get('history', 'latest60')
-                if history_mode == 'all':
-                    show_latest_days = None
-                else:
-                    show_latest_days = 60
+            # Use cache if fresh, otherwise DB
+            if cached_price_history is not None:
+                price_history = cached_price_history
+            else:
                 price_history = get_price_history(asset.id, show_latest_days=show_latest_days)
-                recent_prices = list(reversed(price_history[-10:])) if len(price_history) >= 10 else list(reversed(price_history))
-                suggestions = session.query(Suggestion).filter_by(asset_id=asset.id).order_by(Suggestion.date.desc()).limit(5).all()
-                
-                return render_template("stock_detail.html", stock=asset, recent_prices=recent_prices, price_history=price_history, suggestions=suggestions, active="stocks", history_mode=history_mode)
-        
-        if not asset:
-            return "Stock not found", 404
+                search_history_cache[cache_symbol] = (price_history, now)
             
+            recent_prices = list(reversed(price_history[-10:])) if len(price_history) >= 10 else list(reversed(price_history))
+            suggestions = session.query(Suggestion).filter_by(asset_id=asset.id).order_by(Suggestion.date.desc()).limit(5).all()
+            return render_template("stock_detail.html", stock=asset, recent_prices=recent_prices, price_history=price_history, suggestions=suggestions, active="stocks", history_mode=history_mode)
+        
+        # CASE 2: Asset not in DB (non-Nifty 50 stock) - NO DB writes
         history_mode = request.args.get('history', 'latest60')
+        from data_sources import YFinanceSource
+        yf_source = YFinanceSource()
+        
+        # Fetch asset info from Yahoo
+        ohlcv = yf_source.fetch_latest(symbol)
+        name = yf_source.fetch_name(symbol)
+        if not ohlcv and (symbol.endswith('.NS') or symbol.endswith('.BO')):
+            base_symbol = symbol.replace('.NS', '').replace('.BO', '')
+            ohlcv = yf_source.fetch_latest(base_symbol)
+            name = yf_source.fetch_name(base_symbol)
+            if ohlcv and not name: name = base_symbol
+        
+        if not ohlcv or not name:
+            return "Stock not found or data unavailable", 404
+        
+        exchange = 'NSE' if symbol.endswith('.NS') or not (symbol.endswith('.NS') or symbol.endswith('.BO')) else 'BSE'
+        if symbol.endswith('.BO'): exchange = 'BSE'
+        elif symbol.endswith('.NS'): exchange = 'NSE'
+        
+        # Create transient Asset (not added to session)
+        asset = Asset(symbol=symbol, name=name, exchange=exchange, sector='Unknown', type='equity')
+        
+        # Get price history: cache or Yahoo
+        if cached_price_history is not None:
+            price_history_data = cached_price_history
+        else:
+            history_records = yf_source.fetch_history(symbol, limit=60)
+            if not history_records and (symbol.endswith('.NS') or symbol.endswith('.BO')):
+                base_symbol = symbol.replace('.NS', '').replace('.BO', '')
+                history_records = yf_source.fetch_history(base_symbol, limit=60)
+            if not history_records: return "No historical data available", 404
+            price_history_data = []
+            for rec in history_records:
+                price_history_data.append(DailyPrice(date=rec.date, open=rec.open, high=rec.high, low=rec.low, close=rec.close, adj_close=rec.adj_close, volume=rec.volume))
+            search_history_cache[cache_symbol] = (price_history_data, now)
+        
+        # Apply history mode
         if history_mode == 'all':
             show_latest_days = None
         else:
             show_latest_days = 60
-        recent_prices = session.query(DailyPrice).filter_by(asset_id=asset.id).order_by(DailyPrice.date.desc()).limit(10).all()
-        price_history = get_price_history(asset.id, show_latest_days=show_latest_days)
-        suggestions = session.query(Suggestion).filter_by(asset_id=asset.id).order_by(Suggestion.date.desc()).limit(5).all()
+        
+        if show_latest_days is not None and len(price_history_data) > show_latest_days:
+            price_history = list(price_history_data[-show_latest_days:])
+        else:
+            price_history = list(price_history_data)
+        
+        recent_prices = list(reversed(price_history[-10:])) if len(price_history) >= 10 else list(reversed(price_history))
+        suggestions = []
+        
         return render_template("stock_detail.html", stock=asset, recent_prices=recent_prices, price_history=price_history, suggestions=suggestions, active="stocks", history_mode=history_mode)
     finally:
         session.close()
