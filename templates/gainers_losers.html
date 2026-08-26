@@ -11,7 +11,13 @@
             <tbody>
                 {% for stock in gainers %}
                 <tr>
-                    <td>{{ stock.symbol }}</td>
+                    <td>
+                        {% if stock.id %}
+                        <a class="link" href="/stocks/{{ stock.id }}">{{ stock.symbol }}</a>
+                        {% else %}
+                        {{ stock.symbol }}
+                        {% endif %}
+                    </td>
                     <td>₹{{ stock.ltp }}</td>
                     <td>{{ stock.change }}</td>
                     <td>{{ stock.pChange }}%</td>
@@ -27,7 +33,13 @@
             <tbody>
                 {% for stock in losers %}
                 <tr>
-                    <td>{{ stock.symbol }}</td>
+                    <td>
+                        {% if stock.id %}
+                        <a class="link" href="/stocks/{{ stock.id }}">{{ stock.symbol }}</a>
+                        {% else %}
+                        {{ stock.symbol }}
+                        {% endif %}
+                    </td>
                     <td>₹{{ stock.ltp }}</td>
                     <td>{{ stock.change }}</td>
                     <td>{{ stock.pChange }}%</td>

@@ -318,23 +318,49 @@ def api_prices():
 def gainers_losers():
     """Display top gainers and losers from NSE"""
     nse = Nse()  # Initialize NSE client
+    # Look up asset IDs from the database by symbol so we can link to detail pages.
+    # NSE returns bare symbols (e.g. KOTAKBANK) but the DB stores them with a
+    # .NS suffix (e.g. KOTAKBANK.NS), so try both forms.
+    session = get_db_session()
+    try:
+        gainers_raw = nse.get_top_gainers()[:15]
+        losers_raw = nse.get_top_losers()[:15]
+        symbols = [s['symbol'] for s in gainers_raw] + [s['symbol'] for s in losers_raw]
+        # Try both the bare symbol and the .NS-suffixed form
+        variants = []
+        for s in symbols:
+            variants.append(s)
+            if not s.endswith('.NS'):
+                variants.append(s + '.NS')
+        assets = session.query(Asset).filter(Asset.symbol.in_(variants)).all()
+        # Build a lookup that accepts either form
+        symbol_to_id = {}
+        for a in assets:
+            symbol_to_id[a.symbol] = a.id
+            if a.symbol.endswith('.NS'):
+                symbol_to_id[a.symbol[:-3]] = a.id
+    finally:
+        session.close()
+    
     # Format gainers and losers data for template
     gainers_data = []
-    for stock in nse.get_top_gainers()[:15]:
+    for stock in gainers_raw:
         gainers_data.append({
             'symbol': stock['symbol'],
             'ltp': stock['ltp'],
             'change': stock['net_price'],
-            'pChange': stock['perChange']
+            'pChange': stock['perChange'],
+            'id': symbol_to_id.get(stock['symbol'])
         })
     
     losers_data = []
-    for stock in nse.get_top_losers()[:15]:
+    for stock in losers_raw:
         losers_data.append({
             'symbol': stock['symbol'],
             'ltp': stock['ltp'],
             'change': stock['net_price'],
-            'pChange': stock['perChange']
+            'pChange': stock['perChange'],
+            'id': symbol_to_id.get(stock['symbol'])
         })
     
     return render_template('gainers_losers.html',
