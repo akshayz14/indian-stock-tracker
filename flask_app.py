@@ -9,6 +9,7 @@ import requests
 import json
 import os
 from datetime import datetime, timedelta
+from stock_search_service import StockSearchService
 
 app = Flask(__name__)
 
@@ -123,6 +124,41 @@ def stocks():
     finally:
         session.close()
 
+def get_price_history(asset_id, show_latest_days=60):
+    """Get price history for an asset, optionally limiting to latest N days.
+    
+    Returns a list of dicts for JSON compatibility, or DailyPrice objects 
+    if show_latest_days is None (for maximum flexibility).
+    """
+    session = get_db_session()
+    try:
+        # Get full price history from database
+        price_history = session.query(DailyPrice).filter_by(asset_id=asset_id).order_by(DailyPrice.date.asc()).all()
+        
+        # If we want latest N days, slice the most recent records
+        if show_latest_days and price_history:
+            # Take the most recent show_latest_days records
+            price_history = price_history[-show_latest_days:]
+        
+        # Convert to dicts for JSON serialization compatibility
+        # This ensures the data can be passed to templates and APIs without
+        # "Object of type DailyPrice is not JSON serializable" errors
+        result = []
+        for price in price_history:
+            result.append({
+                'date': price.date.isoformat() if price.date else None,
+                'open': price.open,
+                'high': price.high,
+                'low': price.low,
+                'close': price.close,
+                'adj_close': price.adj_close,
+                'volume': price.volume
+            })
+        return result
+    finally:
+        session.close()
+
+
 @app.route('/stocks/<int:asset_id>')
 @login_required
 def stock_detail(asset_id):
@@ -133,11 +169,18 @@ def stock_detail(asset_id):
         if not asset:
             return "Asset not found", 404
         
-        # Get recent prices
+        # Check for history view mode: ?history=latest60 or ?history=all
+        history_mode = request.args.get('history', 'latest60')
+        if history_mode == 'all':
+            show_latest_days = None  # Show all data
+        else:
+            show_latest_days = 60  # Show latest 60 days
+        
+        # Get recent prices (last 10 for table)
         recent_prices = session.query(DailyPrice).filter_by(asset_id=asset_id).order_by(DailyPrice.date.desc()).limit(10).all()
         
-        # Get full price history for charts (last 60 days)
-        price_history = session.query(DailyPrice).filter_by(asset_id=asset_id).order_by(DailyPrice.date.asc()).limit(60).all()
+        # Get full price history for charts (controlled by show_latest_days param)
+        price_history = get_price_history(asset_id, show_latest_days=show_latest_days)
         
         # Get suggestions for this asset
         suggestions = session.query(Suggestion).filter_by(asset_id=asset_id).order_by(Suggestion.date.desc()).limit(5).all()
@@ -147,7 +190,8 @@ def stock_detail(asset_id):
             recent_prices=recent_prices,
             price_history=price_history,
             suggestions=suggestions,
-            active='stocks')
+            active='stocks',
+            history_mode=history_mode)
     finally:
         session.close()
 
@@ -368,6 +412,23 @@ def gainers_losers():
         losers=losers_data,
         active='gainers_losers')
 
+@app.route('/search')
+@login_required
+def search():
+    """Search stocks page with autocomplete suggestions."""
+    query = request.args.get('q', '').strip()
+    results = []
+    
+    if query:
+        service = StockSearchService()
+        results = service.search_stocks(query, limit=20)
+    
+    return render_template('search.html',
+        query=query,
+        results=results,
+        active='search')
+
+
 @app.route('/mutual-funds')
 @login_required
 def mutual_funds():
@@ -467,6 +528,39 @@ def get_mutual_fund_details_from_api(scheme_code):
     except Exception as e:
         raise Exception(f"Failed to fetch mutual fund details: {str(e)}")
 
+@app.route('/api/search')
+@login_required
+def api_search_stocks():
+    """API endpoint to search stocks by name or symbol."""
+    query = request.args.get('q', '').strip()
+    limit = request.args.get('limit', 10, type=int)
+    
+    if not query:
+        return jsonify([])
+    
+    service = StockSearchService()
+    results = service.search_stocks(query, limit)
+    return jsonify(results)
+
+
+@app.route('/api/stock-details/<symbol>')
+@login_required
+def api_stock_details(symbol):
+    """API endpoint to get stock details by symbol."""
+    service = StockSearchService()
+    details = service.get_stock_details(symbol)
+    return jsonify(details)
+
+
+@app.route('/api/stock-history/<symbol>')
+@login_required
+def api_stock_history(symbol):
+    """API endpoint to get stock history by symbol."""
+    service = StockSearchService()
+    history = service.get_stock_history(symbol)
+    return jsonify(history)
+
+
 @app.route('/mutual-funds/<scheme_code>')
 @login_required
 def mutual_fund_detail(scheme_code):
@@ -495,5 +589,110 @@ def mutual_fund_detail(scheme_code):
     except Exception as e:
         return f"Error fetching mutual fund details: {str(e)}", 500
 
+@app.route("/stock/<symbol>")
+@login_required
+def stock_by_symbol(symbol):
+    session = get_db_session()
+    try:
+        # First try exact match
+        asset = session.query(Asset).filter(Asset.symbol == symbol).first()
+        
+        # If not found, try symbol variations for BSE/NSE coverage
+        if not asset:
+            if symbol.endswith('.BO'):
+                # Try .BO -> .NS conversion (BSE stock mapped to NSE)
+                asset = session.query(Asset).filter(Asset.symbol == symbol.replace('.BO', '.NS')).first()
+            elif not (symbol.endswith('.NS') or symbol.endswith('.BO')):
+                # Bare symbol, try adding .NS suffix
+                asset = session.query(Asset).filter(Asset.symbol == symbol + ".NS").first()
+        
+        # If still not found in database, fetch from Yahoo Finance and add to DB
+        if not asset:
+            from data_sources import YFinanceSource
+            
+            # Try the symbol as-is (with .NS/.BO suffix)
+            yf_source = YFinanceSource()
+            ohlcv = yf_source.fetch_latest(symbol)
+            name = yf_source.fetch_name(symbol)
+            
+            # If that fails and symbol has suffix, try without suffix
+            if not ohlcv and (symbol.endswith('.NS') or symbol.endswith('.BO')):
+                base_symbol = symbol.replace('.NS', '').replace('.BO', '')
+                ohlcv = yf_source.fetch_latest(base_symbol)
+                name = yf_source.fetch_name(base_symbol)
+                # Use the base symbol as the asset symbol if we got data
+                if ohlcv and not name:
+                    name = base_symbol
+            
+            if ohlcv and name:
+                # Determine exchange from symbol
+                exchange = 'NSE' if symbol.endswith('.NS') or not (symbol.endswith('.NS') or symbol.endswith('.BO')) else 'BSE'
+                if symbol.endswith('.BO'):
+                    exchange = 'BSE'
+                elif symbol.endswith('.NS'):
+                    exchange = 'NSE'
+                
+                # Create asset record
+                asset = Asset(
+                    symbol=symbol,
+                    name=name,
+                    exchange=exchange,
+                    sector='Unknown',  # Could be enhanced with yfinance info
+                    type='equity'
+                )
+                session.add(asset)
+                session.flush()  # Get the ID
+                
+                # Fetch 60 days of historical data from Yahoo Finance
+                history_records = yf_source.fetch_history(symbol, limit=60)
+                # If we couldn't get history with the original symbol, try without suffix
+                if not history_records and (symbol.endswith('.NS') or symbol.endswith('.BO')):
+                    base_symbol = symbol.replace('.NS', '').replace('.BO', '')
+                    history_records = yf_source.fetch_history(base_symbol, limit=60)
+                
+                # Add all historical price records
+                for ohlcv_record in history_records:
+                    price = DailyPrice(
+                        asset_id=asset.id,
+                        date=ohlcv_record.date,
+                        open=ohlcv_record.open,
+                        high=ohlcv_record.high,
+                        low=ohlcv_record.low,
+                        close=ohlcv_record.close,
+                        adj_close=ohlcv_record.adj_close,
+                        volume=ohlcv_record.volume
+                    )
+                    session.add(price)
+                
+                session.commit()
+                
+                # Fetch the price history for display (now from database)
+                history_mode = request.args.get('history', 'latest60')
+                if history_mode == 'all':
+                    show_latest_days = None
+                else:
+                    show_latest_days = 60
+                price_history = get_price_history(asset.id, show_latest_days=show_latest_days)
+                recent_prices = list(reversed(price_history[-10:])) if len(price_history) >= 10 else list(reversed(price_history))
+                suggestions = session.query(Suggestion).filter_by(asset_id=asset.id).order_by(Suggestion.date.desc()).limit(5).all()
+                
+                return render_template("stock_detail.html", stock=asset, recent_prices=recent_prices, price_history=price_history, suggestions=suggestions, active="stocks", history_mode=history_mode)
+        
+        if not asset:
+            return "Stock not found", 404
+            
+        history_mode = request.args.get('history', 'latest60')
+        if history_mode == 'all':
+            show_latest_days = None
+        else:
+            show_latest_days = 60
+        recent_prices = session.query(DailyPrice).filter_by(asset_id=asset.id).order_by(DailyPrice.date.desc()).limit(10).all()
+        price_history = get_price_history(asset.id, show_latest_days=show_latest_days)
+        suggestions = session.query(Suggestion).filter_by(asset_id=asset.id).order_by(Suggestion.date.desc()).limit(5).all()
+        return render_template("stock_detail.html", stock=asset, recent_prices=recent_prices, price_history=price_history, suggestions=suggestions, active="stocks", history_mode=history_mode)
+    finally:
+        session.close()
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
+

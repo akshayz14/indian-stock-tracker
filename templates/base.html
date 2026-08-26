@@ -17,6 +17,7 @@
             <a href="/suggestions" class="{% if active == 'suggestions' %}active{% endif %}">Suggestions</a>
             <a href="/gainers-losers" class="{% if active == 'gainers_losers' %}active{% endif %}">Gainers & Losers</a>
             <a href="/mutual-funds" class="{% if active == 'mutual_funds' %}active{% endif %}">Mutual Funds</a>
+            <a href="/search" class="{% if active == 'search' %}active{% endif %}">Search Stocks</a>
         </div>
         <form class="search" action="/stocks" method="get">
             <input type="text" name="q" placeholder="Search stocks…" value="{{ request.args.get('q','') }}">
@@ -35,6 +36,8 @@
             <div class="section-title">Data</div>
             <a href="/api/stocks">⚙ API · Stocks</a>
             <a href="/api/prices">⚙ API · Prices</a>
+            <a href="/api/search?q=reliance">⚙ API · Search</a>
+            <a href="/api/stock-details/RELIANCE.NS">⚙ API · Stock Details</a>
         </aside>
 
         <main class="content">

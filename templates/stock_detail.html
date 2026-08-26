@@ -17,9 +17,16 @@
 </div>
 
 {% if price_history %}
+<!-- View Toggle -->
+<div style="margin-bottom:20px; display:flex; gap:10px; align-items:center;">
+    <span style="font-weight:500;">View:</span>
+    <a href="?history=latest60" style="padding:6px 14px; border-radius:6px; text-decoration: none; font-size:14px; border:1px solid #d1d5db; {% if history_mode != 'all' %}background:#3b82f6; color:white; border-color:#3b82f6;{% else %}background:white; color:#374151;{% endif %}">Latest 60 Days</a>
+    <a href="?history=all" style="padding:6px 14px; border-radius:6px; text-decoration: none; font-size:14px; border:1px solid #d1d5db; {% if history_mode == 'all' %}background:#3b82f6; color:white; border-color:#3b82f6;{% else %}background:white; color:#374151;{% endif %}">Complete History</a>
+</div>
+
 <!-- Price Chart -->
 <div class="card" style="margin-bottom:20px;">
-    <h2 style="margin-top:0;font-size:18px;">Price History (Last 60 Days)</h2>
+    <h2 style="margin-top:0;font-size:18px;">Price History ({{ price_history|length }} days)</h2>
     <div class="chart-container" style="position: relative; height: 300px;">
         <canvas id="priceChart"></canvas>
     </div>
@@ -27,7 +34,7 @@
 
 <!-- Volume Chart -->
 <div class="card" style="margin-bottom:20px;">
-    <h2 style="margin-top:0;font-size:18px;">Volume History (Last 60 Days)</h2>
+    <h2 style="margin-top:0;font-size:18px;">Volume History ({{ price_history|length }} days)</h2>
     <div class="chart-container" style="position: relative; height: 200px;">
         <canvas id="volumeChart"></canvas>
     </div>
