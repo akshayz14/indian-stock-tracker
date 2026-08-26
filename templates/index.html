@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
+
 <div class="page-head">
     <h1>Dashboard</h1>
     <p>Overview of your Indian stock tracking database</p>
@@ -34,4 +35,99 @@
         <a class="btn secondary" href="/prices">Price History</a>
     </div>
 </div>
+
+<!-- Dashboard Overview Charts -->
+{% if stats.total_stocks > 0 and stats.total_suggestions > 0 %}
+<div class="card" style="margin-top:32px;">
+    <h2 style="margin-top:0;font-size:18px;">Market Overview</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));gap:16px;">
+        
+        <!-- Top Gainers Bar Chart -->
+        <div class="chart-box">
+            <h3>Top Gainers</h3>
+            <div class="chart-container" style="position: relative; height: 200px;">
+                <canvas id="topGainersChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Score Distribution Histogram -->
+        <div class="chart-box">
+            <h3>Suggestions Score Distribution</h3>
+            <div class="chart-container" style="position: relative; height: 200px;">
+                <canvas id="scoreHistogramChart"></canvas>
+            </div>
+        </div>
+        
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Top Gainers Chart Data - will be populated from Flask context
+const topGainerLabels = {{ top_gainer_labels|tojson|safe }};
+const topGainerValues = {{ top_gainer_values|tojson|safe }};
+
+// Score Distribution Data
+const scoreLabels = {{ score_labels|tojson|safe }};
+const scoreData = {{ score_data|tojson|safe }};
+
+// Initialize Top Gainers Chart
+const topGainerCtx = document.getElementById('topGainersChart').getContext('2d');
+new Chart(topGainerCtx, {
+    type: 'bar',
+    data: {
+        labels: topGainerLabels,
+        datasets: [{
+            label: 'Gainers',
+            data: topGainerValues,
+            backgroundColor: 'rgba(34, 197, 94, 0.5)',
+            borderColor: 'rgb(34, 197, 94)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+            y: { 
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { callback: function(value) { return value; } }
+            }
+        }
+    }
+});
+
+// Initialize Score Distribution Histogram
+const scoreCtx = document.getElementById('scoreHistogramChart').getContext('2d');
+new Chart(scoreCtx, {
+    type: 'bar',
+    data: {
+        labels: scoreLabels,
+        datasets: [{
+            label: 'Suggestions',
+            data: scoreData,
+            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+            borderColor: 'rgb(59, 130, 246)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+            y: { 
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { callback: function(value) { return value; } }
+            }
+        }
+    }
+});
+</script>
 {% endblock %}

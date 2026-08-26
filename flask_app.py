@@ -52,6 +52,7 @@ def index():
     try:
         stats = {
             'total_assets': session.query(Asset).count(),
+            'total_stocks': session.query(Asset).filter(Asset.type == 'equity').count(),
             'total_prices': session.query(DailyPrice).count(),
             'total_suggestions': session.query(Suggestion).count(),
             'latest_date': session.query(DailyPrice.date).order_by(DailyPrice.date.desc()).first()[0] if session.query(DailyPrice).first() else None
@@ -121,12 +122,16 @@ def stock_detail(asset_id):
         # Get recent prices
         recent_prices = session.query(DailyPrice).filter_by(asset_id=asset_id).order_by(DailyPrice.date.desc()).limit(10).all()
         
+        # Get full price history for charts (last 60 days)
+        price_history = session.query(DailyPrice).filter_by(asset_id=asset_id).order_by(DailyPrice.date.asc()).limit(60).all()
+        
         # Get suggestions for this asset
         suggestions = session.query(Suggestion).filter_by(asset_id=asset_id).order_by(Suggestion.date.desc()).limit(5).all()
         
         return render_template('stock_detail.html',
             stock=asset,
             recent_prices=recent_prices,
+            price_history=price_history,
             suggestions=suggestions,
             active='stocks')
     finally:

@@ -50,32 +50,48 @@
             </tbody>
         </table>
     </div>
+</div>
 
-    <div class="pagination">
-        {% if has_prev %}
-        <a href="?page={{ page - 1 }}{% if selected_stock_id %}&stock_id={{ selected_stock_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">← Previous</a>
-        {% else %}
-        <span class="disabled">← Previous</span>
-        {% endif %}
-        <span>Page {{ page }} of {{ total_pages }}</span>
-        {% if has_next %}
-        <a href="?page={{ page + 1 }}{% if selected_stock_id %}&stock_id={{ selected_stock_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">Next →</a>
-        {% else %}
-        <span class="disabled">Next →</span>
-        {% endif %}
+<!-- Score Distribution Chart -->
+<div class="card" style="margin-top:32px;">
+    <h2 style="margin-top:0;font-size:18px;">Score Distribution</h3>
+    <div class="chart-container" style="position: relative; height: 250px;">
+        <canvas id="scoreChart"></canvas>
     </div>
-    <div id="hint-box" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#fff; border:1px solid #ccc; padding:10px; max-width:400px; z-index:1000;"></div>
-    </div>
+</div>
+
 <script>
-function showHint() {
-    const hintText = "<b>Momentum</b> – How much and in which direction the stock price moved today. A positive number means the price went up; a larger number means a stronger upward push.<br><br><b>Volume</b> – The total number of shares traded during the day. High volume means many investors are paying attention and trading actively, which often signals a stronger move.<br><br><b>Close Strength</b> – Where the stock closed relative to its high and low for the day. Closing near the high is bullish (buyers won the day); closing near the low is bearish (sellers won).<br><br><b>Score</b> – A single number that combines momentum, volume, and close strength (plus a few extra checks) into one ranking. Higher scores mean the stock shows stronger positive signals today. A higher score suggests the stock may continue moving upward tomorrow, while a lower score indicates weaker momentum and potential downward pressure. Use the score as a quick filter to prioritize stocks with the strongest bullish signals for your next day's trading decisions.";
-    const box = document.getElementById('hint-box');
-    box.style.display = 'block';
-    box.innerHTML = hintText;
-}
-function hideHint() {
-    const box = document.getElementById('hint-box');
-    box.style.display = 'none';
-}
+// Score Distribution Chart
+const scoreChartCtx = document.getElementById('scoreChart').getContext('2d');
+const scoreChartData = {
+    labels: {{ score_labels|tojson|safe }},
+    datasets: [{
+        label: 'Score Frequency',
+        data: {{ score_counts|tojson|safe }},
+        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+        borderColor: 'rgb(59, 130, 246)',
+        borderWidth: 1
+    }]
+};
+
+new Chart(scoreChartCtx, {
+    type: 'bar',
+    data: scoreChartData,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { 
+                grid: { display: false },
+                ticks: { maxTicksLimit: 8 }
+            },
+            y: {
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { callback: function(value) { return value; } }
+            }
+        }
+    }
+});
 </script>
 {% endblock %}
