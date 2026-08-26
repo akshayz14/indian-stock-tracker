@@ -22,7 +22,7 @@
     </div>
     <div class="stat">
         <div class="label">Latest Data</div>
-        <div class="value" style="font-size:20px;">{{ stats.latest_date|default('No data yet') }}</div>
+        <div class="value" style="font-size:20px;">{{ stats.latest_date|ddmmmyyyy|default('No data yet') }}</div>
     </div>
 </div>
 

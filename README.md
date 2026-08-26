@@ -84,7 +84,7 @@ Print suggestions for a specific date (defaults to yesterday):
 
 ```bash
 python cli.py                 # yesterday's suggestions
-python cli.py --date 2026-07-10   # specific date (YYYY-MM-DD)
+python cli.py --date 10-07-2026   # specific date (dd-mm-yyyy)
 ```
 
 If no suggestions exist for the date, the CLI generates them on the fly.

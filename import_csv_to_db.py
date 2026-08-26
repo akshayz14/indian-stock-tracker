@@ -85,7 +85,7 @@ def create_mutual_fund_db_from_csv():
                     asset_id = result[0]
                     
                     # Use today's date for suggestion date
-                    date = datetime.now().strftime('%Y-%m-%d')
+                    date = datetime.now().strftime('%d-%m-%Y')
                     
                     try:
                         cursor.execute('''

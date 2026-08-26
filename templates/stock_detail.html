@@ -47,7 +47,7 @@
             <tbody>
                 {% for price in recent_prices %}
                 <tr>
-                    <td class="mono">{{ price.date }}</td>
+                    <td class="mono">{{ price.date|ddmmmyyyy }}</td>
                     {% if price.open is not none %}
                         <td class="mono">₹{{ '%.2f'|format(price.open) }}</td>
                     {% else %}
@@ -97,7 +97,7 @@
             <tbody>
                 {% for suggestion in suggestions %}
                 <tr>
-                    <td class="mono">{{ suggestion.date }}</td>
+                    <td class="mono">{{ suggestion.date|ddmmmyyyy }}</td>
                     <td class="mono"><span class="pos">{{ '%.4f'|format(suggestion.score) }}</span></td>
                     <td>{{ suggestion.reasoning }}</td>
                 </tr>
@@ -117,7 +117,7 @@ const priceValues = [];
 const volumeValues = [];
 
 {% for price in price_history %}
-priceLabels.push("{{ price.date }}");
+priceLabels.push("{{ price.date|ddmmmyyyy }}");
 priceValues.push({{ price.close if price.close is not none else 0 }});
 volumeValues.push({{ price.volume if price.volume is not none else 0 }});
 {% endfor %}

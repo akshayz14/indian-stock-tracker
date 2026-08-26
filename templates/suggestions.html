@@ -39,7 +39,7 @@
                 {% for suggestion in suggestions %}
                 <tr>
                     <td class="mono">{{ (page - 1) * per_page + loop.index }}</td>
-                    <td class="mono">{{ suggestion[0].date }}</td>
+                    <td class="mono">{{ suggestion[0].date|ddmmmyyyy }}</td>
                     <td><a class="link" href="/stocks/{{ suggestion[1].id }}">{{ suggestion[1].name }}</a></td>
                     <td class="mono"><span class="pos">{{ '%.4f'|format(suggestion[0].score) }}</span></td>
                     <td>{{ suggestion[0].reasoning }}</td>
