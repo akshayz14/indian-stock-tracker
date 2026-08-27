@@ -10,7 +10,7 @@
 - **Models**: `models.py` defines SQLAlchemy ORM tables (`Asset`, `DailyPrice`, `Suggestion`, `MutualFundAsset`, `MutualFundSuggestion`) and session helpers.
 - **Data Sources**: `data_sources.py` contains `DataSource` abstraction with implementations: `NSESource`, `YFinanceSource`, `MutualFundSource`.
 - **Data Fetching**: `data_fetcher.py` orchestrates fetching and storing daily prices.
-- **Scoring**: `scoring.py` implements momentum and volume factor calculations, and `generate_suggestions()`.
+- **Scoring**: `scoring2.py` implements momentum, volume, RSI, MA, close-strength, and gap-up scoring, and `generate_suggestions()` / `generate_mf_suggestions()`.
 - **Mutual Fund Processing**: `mutual_fund_db.py` fetches NAV data from mfapi.in, scores funds, and stores in separate database.
 - **Orchestration**: `run_daily.py` runs the full pipeline (fetch → store → score → print).
 - **CLI**: `cli.py` provides command-line interface for querying suggestions.

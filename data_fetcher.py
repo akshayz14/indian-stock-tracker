@@ -1,6 +1,6 @@
 import datetime
 from sqlalchemy.orm import Session
-from models import Asset, DailyPrice, Suggestion, get_session
+from models import Asset, DailyPrice, get_session
 from data_sources import fetch_with_fallback, resolve_name, DEFAULT_SOURCES, MutualFundSource
 
 # Default list of symbols to track

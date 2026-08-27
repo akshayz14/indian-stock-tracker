@@ -638,18 +638,16 @@ def stock_by_symbol(symbol):
         history_mode = request.args.get('history', 'latest60')
         from data_sources import YFinanceSource
         yf_source = YFinanceSource()
-        
+
         # Fetch asset info from Yahoo
-        ohlcv = yf_source.fetch_latest(symbol)
         name = yf_source.fetch_name(symbol)
-        if not ohlcv and (symbol.endswith('.NS') or symbol.endswith('.BO')):
+        if not name and (symbol.endswith('.NS') or symbol.endswith('.BO')):
             base_symbol = symbol.replace('.NS', '').replace('.BO', '')
-            ohlcv = yf_source.fetch_latest(base_symbol)
             name = yf_source.fetch_name(base_symbol)
-            if ohlcv and not name: name = base_symbol
-        
-        if not ohlcv or not name:
+
+        if not name:
             return "Stock not found or data unavailable", 404
+
         
         exchange = 'NSE' if symbol.endswith('.NS') or not (symbol.endswith('.NS') or symbol.endswith('.BO')) else 'BSE'
         if symbol.endswith('.BO'): exchange = 'BSE'

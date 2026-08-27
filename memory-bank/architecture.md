@@ -6,7 +6,7 @@
 |-------|------------|----------------|
 | **Data Layer** | SQLAlchemy ORM models (`Asset`, `DailyPrice`, `Suggestion`, `MutualFundAsset`, `MutualFundSuggestion`) | Persist assets, daily OHLCV prices, and generated suggestions in SQLite. Separate database for mutual funds (`mutual_funds.db`). |
 | **Service Layer** | `data_sources.py` – `DataSource` abstraction with implementations: `NSESource`, `YFinanceSource`, `MutualFundSource` | Fetch raw market data from external providers with automatic fallback. |
-| **Business Logic** | `scoring.py` – `calculate_momentum()`, `calculate_volume_factor()`, `generate_suggestions()` | Compute composite scores and persist top‑N suggestions. |
+| **Business Logic** | `scoring2.py` – `calculate_score()`, `generate_suggestions()`, `calculate_mf_score()`, `generate_mf_suggestions()` | Compute composite scores (momentum, volume, RSI, MA, close strength, gap) and persist top‑N suggestions for both equities and mutual funds. |
 | **Orchestration** | `data_fetcher.py` – `fetch_and_store()`; `run_daily.py` – end‑to‑end daily job | Coordinate fetch → store → score → output. |
 | **CLI** | `cli.py` – `argparse` entry point | Query suggestions for a given date (default: latest available). |
 | **Web UI** | `flask_app.py` + Jinja2 templates (`templates/*.html`) | Browse DB, filter/sort, JSON APIs (`/api/stocks`, `/api/prices`, `/mutual-funds`). |
@@ -80,7 +80,7 @@
 ## Extensibility
 
 - **New data source**: Implement `DataSource` in `data_sources.py`; prepend to `SOURCES`.
-- **New scoring factor**: Add function in `scoring.py`; adjust `generate_suggestions()`.
+- **New scoring factor**: Add function in `scoring2.py`; adjust `generate_suggestions()`.
 - **New asset type**: Add `type` value in `DEFAULT_SYMBOLS`; ensure source supports it.
 - **Additional API endpoint**: Add route in `flask_app.py`; create template if UI needed.
 - **ML model**: Replace `calculate_momentum`/`calculate_volume_factor` with model inference.
