@@ -88,8 +88,52 @@ class MutualFundSuggestion(Base):
 def get_engine(db_path='sqlite:///stocks.db'):
     return create_engine(db_path, echo=False)
 
+def _add_missing_columns(engine):
+    """Add any columns from the Asset model that are missing from the assets table."""
+    from sqlalchemy import inspect, text
+
+    # Get existing column names from the assets table
+    inspector = inspect(engine)
+    existing_cols = set(c['name'] for c in inspector.get_columns('assets'))
+
+    # Define all columns from the Asset model (those NOT already present)
+    # and their SQL types, matching the model definitions
+    model_columns = {
+        'industry': 'TEXT',
+        'market_cap': 'REAL',
+        'pe_ratio': 'REAL',
+        'forward_pe': 'REAL',
+        'eps': 'REAL',
+        'book_value': 'REAL',
+        'price_to_book': 'REAL',
+        'dividend_yield': 'REAL',
+        'dividend_rate': 'REAL',
+        'beta': 'REAL',
+        'profit_margin': 'REAL',
+        'operating_margin': 'REAL',
+        'return_on_equity': 'REAL',
+        'return_on_assets': 'REAL',
+        'total_revenue': 'REAL',
+        'total_debt': 'REAL',
+        'total_cash': 'REAL',
+        'debt_to_equity': 'REAL',
+        'shares_outstanding': 'REAL',
+        'float_shares': 'REAL',
+        'website': 'TEXT',
+        'country': 'TEXT',
+        'currency': 'TEXT',
+        'last_updated': 'TEXT',
+    }
+
+    # Build ALTER TABLE statements for any missing columns
+    with engine.begin() as conn:
+        for col_name, col_type in model_columns.items():
+            if col_name not in existing_cols:
+                conn.execute(text(f'ALTER TABLE assets ADD COLUMN "{col_name}" {col_type}'))
+
 def init_db():
     engine = get_engine()
+    _add_missing_columns(engine)
     Base.metadata.create_all(engine)
     return engine
 
