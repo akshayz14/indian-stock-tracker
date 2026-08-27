@@ -125,8 +125,8 @@ const volumeValues = [];
 
 {% for price in price_history %}
 priceLabels.push("{{ price.date|ddmmmyyyy }}");
-priceValues.push({{ price.close if price.close is not none else 0 }});
-volumeValues.push({{ price.volume if price.volume is not none else 0 }});
+priceValues.push({{ price.close if price.close is not none else null }});
+volumeValues.push({{ price.volume if price.volume is not none else null }});
 {% endfor %}
 
 // Price Chart
@@ -150,6 +150,7 @@ new Chart(priceCtx, {
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        spanGaps: false,
         interaction: { intersect: false, mode: 'index' },
         plugins: {
             legend: { display: false },
