@@ -29,7 +29,7 @@ def main():
     parser.add_argument(
         '--date',
         type=str,
-        help='Date for suggestions in YYYY-MM-DD (default: yesterday)'
+        help='Date for suggestions in dd-mm-yyyy (default: yesterday)'
     )
     parser.add_argument(
         '--type',
@@ -40,9 +40,11 @@ def main():
     args = parser.parse_args()
     if args.date:
         try:
-            target = date.fromisoformat(args.date)
+            # Try parsing as dd-mm-yyyy format
+            day, month, year = map(int, args.date.split('-'))
+            target = date(year, month, day)
         except ValueError:
-            print('Invalid date format. Use YYYY-MM-DD')
+            print('Invalid date format. Use dd-mm-yyyy')
             return
     else:
         target = date.today() - timedelta(days=1)

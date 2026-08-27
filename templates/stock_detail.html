@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{{ stock.symbol }}{% endblock %}
+{% block title %}{{ stock.name }}{% endblock %}
 {% block content %}
 <div class="stock-head">
     <div class="avatar">{{ stock.symbol[:2] }}</div>
     <div>
-        <h1>{{ stock.symbol }}</h1>
+        <h1>{{ stock.name }}</h1>
         <div class="sub">{{ stock.name }} · <span class="badge">{{ stock.exchange }}</span></div>
     </div>
 </div>
@@ -15,6 +15,31 @@
     <div class="kv"><div class="k">Price Records</div><div class="v">{{ recent_prices|length }}</div></div>
     <div class="kv"><div class="k">Suggestions</div><div class="v">{{ suggestions|length }}</div></div>
 </div>
+
+{% if price_history %}
+<!-- View Toggle -->
+<div style="margin-bottom:20px; display:flex; gap:10px; align-items:center;">
+    <span style="font-weight:500;">View:</span>
+    <a href="?history=latest60" style="padding:6px 14px; border-radius:6px; text-decoration: none; font-size:14px; border:1px solid #d1d5db; {% if history_mode != 'all' %}background:#3b82f6; color:white; border-color:#3b82f6;{% else %}background:white; color:#374151;{% endif %}">Latest 60 Days</a>
+    <a href="?history=all" style="padding:6px 14px; border-radius:6px; text-decoration: none; font-size:14px; border:1px solid #d1d5db; {% if history_mode == 'all' %}background:#3b82f6; color:white; border-color:#3b82f6;{% else %}background:white; color:#374151;{% endif %}">Complete History</a>
+</div>
+
+<!-- Price Chart -->
+<div class="card" style="margin-bottom:20px;">
+    <h2 style="margin-top:0;font-size:18px;">Price History ({{ price_history|length }} days)</h2>
+    <div class="chart-container" style="position: relative; height: 300px;">
+        <canvas id="priceChart"></canvas>
+    </div>
+</div>
+
+<!-- Volume Chart -->
+<div class="card" style="margin-bottom:20px;">
+    <h2 style="margin-top:0;font-size:18px;">Volume History ({{ price_history|length }} days)</h2>
+    <div class="chart-container" style="position: relative; height: 200px;">
+        <canvas id="volumeChart"></canvas>
+    </div>
+</div>
+{% endif %}
 
 <div class="card">
     <h2 style="margin-top:0;font-size:18px;">Recent Prices</h2>
@@ -29,7 +54,7 @@
             <tbody>
                 {% for price in recent_prices %}
                 <tr>
-                    <td class="mono">{{ price.date }}</td>
+                    <td class="mono">{{ price.date|ddmmmyyyy }}</td>
                     {% if price.open is not none %}
                         <td class="mono">₹{{ '%.2f'|format(price.open) }}</td>
                     {% else %}
@@ -79,7 +104,7 @@
             <tbody>
                 {% for suggestion in suggestions %}
                 <tr>
-                    <td class="mono">{{ suggestion.date }}</td>
+                    <td class="mono">{{ suggestion.date|ddmmmyyyy }}</td>
                     <td class="mono"><span class="pos">{{ '%.4f'|format(suggestion.score) }}</span></td>
                     <td>{{ suggestion.reasoning }}</td>
                 </tr>
@@ -90,4 +115,102 @@
         </table>
     </div>
 </div>
+
+{% if price_history and price_history|length > 0 %}
+<script>
+// Prepare data for charts
+const priceLabels = [];
+const priceValues = [];
+const volumeValues = [];
+
+{% for price in price_history %}
+priceLabels.push("{{ price.date|ddmmmyyyy }}");
+priceValues.push({{ price.close if price.close is not none else 0 }});
+volumeValues.push({{ price.volume if price.volume is not none else 0 }});
+{% endfor %}
+
+// Price Chart
+const priceCtx = document.getElementById('priceChart').getContext('2d');
+new Chart(priceCtx, {
+    type: 'line',
+    data: {
+        labels: priceLabels,
+        datasets: [{
+            label: 'Close Price (₹)',
+            data: priceValues,
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.1,
+            pointRadius: 0,
+            pointHoverRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                callbacks: {
+                    label: function(context) {
+                        return 'Close: ₹' + context.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    }
+                }
+            }
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+            y: {
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { callback: function(value) { return '₹' + value.toLocaleString(); } }
+            }
+        }
+    }
+});
+
+// Volume Chart
+const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+new Chart(volumeCtx, {
+    type: 'bar',
+    data: {
+        labels: priceLabels,
+        datasets: [{
+            label: 'Volume',
+            data: volumeValues,
+            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+            borderColor: 'rgb(59, 130, 246)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                callbacks: {
+                    label: function(context) {
+                        return 'Volume: ' + context.parsed.y.toLocaleString();
+                    }
+                }
+            }
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+            y: {
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { callback: function(value) { return value.toLocaleString(); } }
+            }
+        }
+    }
+});
+</script>
+{% endif %}
 {% endblock %}

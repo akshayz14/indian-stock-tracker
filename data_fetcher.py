@@ -1,6 +1,6 @@
 import datetime
 from sqlalchemy.orm import Session
-from models import Asset, DailyPrice, Suggestion, get_session
+from models import Asset, DailyPrice, get_session
 from data_sources import fetch_with_fallback, resolve_name, DEFAULT_SOURCES, MutualFundSource
 
 # Default list of symbols to track
@@ -83,6 +83,8 @@ def fetch_and_store(symbols, sources=None):
     Symbols should be tuples: (symbol, type).
     For mutual funds we store the recent NAV history (not just the latest
     NAV) so that scoring has prior NAVs to compute returns against.
+    For equities we store recent price history (last 60 days) for charting
+    and analysis purposes.
     """
     session = get_session()
     for sym, sym_type in symbols:
@@ -120,33 +122,70 @@ def fetch_and_store(symbols, sources=None):
                     print(f'Stored {stored} NAV records for {sym}')
                 continue
 
-            ohlcv = fetch_with_fallback(sym, srcs)
-            if ohlcv is None:
-                print(f'No data for {sym} from any source')
-                continue
-
-            date = ohlcv.date
-            name = resolve_name(sym, srcs)
-            asset = get_or_create_asset(session, sym, name=name, asset_type=sym_type)
-
-            # Check if price for this date already exists
-            exists = session.query(DailyPrice).filter_by(asset_id=asset.id, date=date).first()
-            if exists:
-                continue
-
-            price = DailyPrice(
-                asset_id=asset.id,
-                date=date,
-                open=ohlcv.open,
-                high=ohlcv.high,
-                low=ohlcv.low,
-                close=ohlcv.close,
-                adj_close=ohlcv.adj_close,
-                volume=ohlcv.volume
-            )
-            session.add(price)
-            session.commit()
-            print(f'Stored data for {sym} on {date}')
+            # For equities, fetch and store recent historical price data (last 60 days)
+            # Use YFinanceSource directly to get history, as it's most reliable for historical data
+            from data_sources import YFinanceSource
+            yf_source = YFinanceSource()
+            history_records = yf_source.fetch_history(sym, limit=60)
+            # If we couldn't get history with the original symbol, try without suffix
+            if not history_records and (sym.endswith('.NS') or sym.endswith('.BO')):
+                base_symbol = sym.replace('.NS', '').replace('.BO', '')
+                history_records = yf_source.fetch_history(base_symbol, limit=60)
+            
+            if not history_records:
+                print(f'No historical data for {sym} from any source')
+                # Fallback to storing just the latest price for backward compatibility
+                ohlcv = fetch_with_fallback(sym, srcs)
+                if ohlcv is None:
+                    print(f'No data for {sym} from any source')
+                    continue
+                
+                date = ohlcv.date
+                name = resolve_name(sym, srcs)
+                asset = get_or_create_asset(session, sym, name=name, asset_type=sym_type)
+                
+                # Check if price for this date already exists
+                exists = session.query(DailyPrice).filter_by(asset_id=asset.id, date=date).first()
+                if exists:
+                    continue
+                
+                price = DailyPrice(
+                    asset_id=asset.id,
+                    date=date,
+                    open=ohlcv.open,
+                    high=ohlcv.high,
+                    low=ohlcv.low,
+                    close=ohlcv.close,
+                    adj_close=ohlcv.adj_close,
+                    volume=ohlcv.volume
+                )
+                session.add(price)
+                session.commit()
+                print(f'Stored latest price data for {sym} on {date} (fallback)')
+            else:
+                # Store all historical price records
+                name = resolve_name(sym, srcs)
+                asset = get_or_create_asset(session, sym, name=name, asset_type=sym_type)
+                stored = 0
+                for ohlcv_record in history_records:
+                    exists = session.query(DailyPrice).filter_by(asset_id=asset.id, date=ohlcv_record.date).first()
+                    if exists:
+                        continue
+                    price = DailyPrice(
+                        asset_id=asset.id,
+                        date=ohlcv_record.date,
+                        open=ohlcv_record.open,
+                        high=ohlcv_record.high,
+                        low=ohlcv_record.low,
+                        close=ohlcv_record.close,
+                        adj_close=ohlcv_record.adj_close,
+                        volume=ohlcv_record.volume
+                    )
+                    session.add(price)
+                    stored += 1
+                session.commit()
+                if stored:
+                    print(f'Stored {stored} historical price records for {sym}')
         except Exception as e:
             print(f'Error fetching {sym}: {e}')
     session.close()

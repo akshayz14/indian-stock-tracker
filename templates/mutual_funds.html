@@ -2,9 +2,47 @@
 {% block title %}Mutual Funds{% endblock %}
 {% block content %}
 <div class="page-head">
-    <h1>Mutual Funds</h1>
-    <p>Tracked schemes with latest NAV and NAV-return based score</p>
+    <h1>Top Mutual Funds</h1>
+    <p>Tracked schemes with latest NAV and NAV-return based score. Showing best stocks in that category.</p>
 </div>
+
+<div class="fund-filters">
+    <a href="/mutual-funds?category=large-cap" class="btn secondary" id="large-cap-btn">Large Cap</a>
+    <a href="/mutual-funds?category=mid-cap" class="btn secondary">Mid Cap</a>
+    <a href="/mutual-funds?category=small-cap" class="btn secondary">Small Cap</a>
+    <a href="/mutual-funds?category=debt" class="btn secondary">Debt Funds</a>
+    <a href="/top-mutual-funds" class="btn secondary">Top 50 Funds</a>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get current category from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentCategory = urlParams.get('category') || 'large-cap';
+        
+        // Set initial active button - only for category buttons, not Top 50 Funds
+        const categoryButtons = document.querySelectorAll('.fund-filters .btn.secondary');
+        categoryButtons.forEach(button => {
+            // Use URLSearchParams to properly parse the category from href
+            const buttonUrl = new URL(button.getAttribute('href'), window.location.origin);
+            const buttonCategory = buttonUrl.searchParams.get('category');
+            if (buttonCategory === currentCategory) {
+                button.classList.add('active');
+            }
+        });
+        
+        // Handle button click to highlight in blue
+        const buttons = document.querySelectorAll('.fund-filters .btn');
+        buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all buttons
+                buttons.forEach(btn => btn.classList.remove('active'));
+                // Add active class to clicked button
+                this.classList.add('active');
+            });
+        });
+    });
+</script>
 
 <div class="card">
     <div class="table-wrap">
@@ -13,8 +51,8 @@
                 <tr>
                     <th>#</th>
                     <th>Scheme</th>
-                    <th>Latest NAV</th>
-                    <th>NAV Date</th>
+                    <th>Fund House</th>
+                    <th>Category</th>
                     <th>Score</th>
                 </tr>
             </thead>
@@ -23,23 +61,11 @@
                 <tr>
                     <td class="mono">{{ loop.index }}</td>
                     <td>
-                        <a class="link" href="/stocks/{{ entry.asset.id }}">{{ entry.asset.name }}</a>
-                        <div class="name">{{ entry.asset.symbol }}</div>
+                         <a class="link" href="/mutual-funds/{{ entry.asset.scheme_code }}">{{ entry.asset.scheme_name }}</a>
+                        <div class="name">{{ entry.asset.scheme_code }}</div>
                     </td>
-                    <td class="mono">
-                        {% if entry.price %}
-                            ₹{{ '%.4f'|format(entry.price.close) }}
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </td>
-                    <td class="mono">
-                        {% if entry.price %}
-                            {{ entry.price.date }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
+                    <td>{{ entry.asset.fund_house }}</td>
+                    <td>{{ entry.asset.type }}</td>
                     <td class="mono">
                         {% if entry.suggestion %}
                             <span class="pos">{{ '%.4f'|format(entry.suggestion.score) }}</span>

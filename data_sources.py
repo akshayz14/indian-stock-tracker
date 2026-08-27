@@ -100,6 +100,39 @@ class YFinanceSource(DataSource):
             volume=float(latest["Volume"]),
         )
 
+    def fetch_history(self, symbol: str, limit: int = 60) -> List[OHLCV]:
+        """Fetch historical OHLCV data for a symbol."""
+        import yfinance as yf
+        
+        try:
+            ticker = yf.Ticker(symbol)
+            # Fetch enough data to get at least 'limit' trading days
+            # Using '6mo' should give us plenty of data
+            hist = ticker.history(period="6mo")
+            if hist is None or hist.empty:
+                return []
+            
+            # Convert to OHLCV objects, most recent first
+            records = []
+            for idx, row in hist.iterrows():
+                if len(records) >= limit:
+                    break
+                    
+                date = idx.date() if hasattr(idx, 'date') else idx
+                records.append(OHLCV(
+                    date=date,
+                    open=float(row['Open']),
+                    high=float(row['High']),
+                    low=float(row['Low']),
+                    close=float(row['Close']),
+                    adj_close=float(row.get('Adj Close', row['Close'])),
+                    volume=float(row['Volume'])
+                ))
+            
+            return records
+        except Exception:
+            return []
+
     def fetch_name(self, symbol: str) -> Optional[str]:
         try:
             import yfinance as yf
