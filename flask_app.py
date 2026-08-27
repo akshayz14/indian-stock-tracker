@@ -11,9 +11,9 @@ import os
 from datetime import datetime, timedelta
 from stock_search_service import StockSearchService
 
-# In-memory cache for searched stock 60-day price history (TTL: 1 hour)
+# In-memory cache for searched stock 60-day price history (TTL: 15 minutes)
 search_history_cache = {}
-SEARCH_HISTORY_CACHE_DURATION = timedelta(hours=1)
+SEARCH_HISTORY_CACHE_DURATION = timedelta(minutes=15)
 
 app = Flask(__name__)
 
@@ -600,7 +600,7 @@ def stock_by_symbol(symbol):
     try:
         cache_symbol = symbol.upper().strip()
         
-        # Check cache first (freshness: 1 hour)
+        # Check cache first (freshness: 15 minutes)
         now = datetime.now()
         cached_price_history = None
         if cache_symbol in search_history_cache:
