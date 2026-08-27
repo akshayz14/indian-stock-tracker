@@ -35,7 +35,10 @@ A lightweight, automated system for Indian investors to fetch daily market data,
 - SQLite database size ≤ 200 MB for typical usage
 
 ## Document Version
-- PRD.md: Version 1.0, Last Updated: 2026-07-25
+- PRD.md: Version 1.2, Last Updated: 2026-08-21
 - TRD.md: Version 1.2, Last Updated: 2026-08-21
 
 - [x] Create project-context.md
+- [x] Update PRD.md to version 1.2
+- [x] Update architecture.md to include mutual fund implementation details
+- [x] Create known-issues.md documenting project issues
