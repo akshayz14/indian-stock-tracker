@@ -62,3 +62,12 @@
 **Workaround**: None - data will refresh automatically after cache expiration.
 
 **Status**: Open (considered low priority)
+
+## 6. Stock Detail Chart X-Axis Misleading Last Tick Label (Fixed)
+**Description**: On the stock detail page (`/stocks/<asset_id>`), the Chart.js price/volume charts used `maxTicksLimit: 10` which caused auto-skipping of x-axis tick labels. When the dataset had 14 data points, only 10 evenly-spaced labels were shown, and the last visible label was NOT the most recent date (e.g., showed `2026-08-19` when data went to `2026-08-27`). This misled users into thinking the chart ended at the last visible tick label.
+
+**Location**: `templates/stock_detail.html` lines 119-216 (chart JavaScript)
+
+**Fix Applied**: Added logic to show ALL labels when `priceLabels.length <= 30` by setting `autoSkip: false` and removing `maxTicksLimit`. For larger datasets (>30), falls back to `maxTicksLimit: 10` with auto-skipping. This ensures the most recent date is always visible as the last tick label for typical datasets.
+
+**Status**: Fixed
