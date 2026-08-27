@@ -411,9 +411,13 @@ def gainers_losers():
             'id': symbol_to_id.get(stock['symbol'])
         })
     
+    # Date the gainers/losers data is for (live snapshot from NSE)
+    today_str = datetime.now().strftime('%d-%m-%Y')
+
     return render_template('gainers_losers.html',
         gainers=gainers_data,
         losers=losers_data,
+        today_str=today_str,
         active='gainers_losers')
 
 @app.route('/search')

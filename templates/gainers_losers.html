@@ -3,7 +3,7 @@
 {% block content %}
 <div class="card">
     <div class="table-wrap">
-        <h2>Top 15 Gainers</h2>
+        <h2>Top 15 Gainers in Nifty 50 <span class="date-label">for {{ today_str }}</span></h2>
         <table class="data">
             <thead>
                 <tr><th>Symbol</th><th>LTP</th><th>Change</th><th>% Change</th></tr>
@@ -25,7 +25,7 @@
                 {% endfor %}
             </tbody>
         </table>
-        <h2>Top 15 Losers</h2>
+        <h2>Top 15 Losers in Nifty 50 <span class="date-label">for {{ today_str }}</span></h2>
         <table class="data">
             <thead>
                 <tr><th>Symbol</th><th>LTP</th><th>Change</th><th>% Change</th></tr>

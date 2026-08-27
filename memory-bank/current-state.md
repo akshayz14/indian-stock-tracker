@@ -23,6 +23,7 @@
 - Created `mutual_fund_db.py` for fetching and scoring mutual funds.
 - Updated `flask_app.py` to include `/mutual-funds` route and template.
 - Updated documentation (PRD.md, TRD.md) to reflect mutual fund functionality.
+- Enhanced `/gainers-losers` route to display gainers/losers with date information (`for dd-mm-yyyy`).
 
 ## Running State
 - `python run_daily.py` should fetch data, score, and store suggestions (assuming network connectivity).
