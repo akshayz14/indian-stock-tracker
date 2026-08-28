@@ -94,6 +94,10 @@ def _add_missing_columns(engine):
 
     # Get existing column names from the assets table
     inspector = inspect(engine)
+    # If the table doesn't exist yet, there are no existing columns to compare against
+    if not inspector.has_table('assets'):
+        return
+
     existing_cols = set(c['name'] for c in inspector.get_columns('assets'))
 
     # Define all columns from the Asset model (those NOT already present)
@@ -133,8 +137,10 @@ def _add_missing_columns(engine):
 
 def init_db():
     engine = get_engine()
-    _add_missing_columns(engine)
+    # Create all tables first (handles initial schema creation)
     Base.metadata.create_all(engine)
+    # Then add any missing columns from model updates
+    _add_missing_columns(engine)
     return engine
 
 def get_session():
