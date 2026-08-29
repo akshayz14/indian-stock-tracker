@@ -53,3 +53,11 @@ SELECT id, date, stock_id, score, reasoning FROM suggestions_old;
 DROP TABLE suggestions_old;
 
 COMMIT;
+
+-- Migration: add latest_nav_date column to mutual_fund_assets table
+BEGIN TRANSACTION;
+
+-- Check if column already exists before adding
+ALTER TABLE mutual_fund_assets ADD COLUMN latest_nav_date DATE;
+
+COMMIT;

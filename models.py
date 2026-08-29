@@ -72,6 +72,7 @@ class MutualFundAsset(Base):
     scheme_name = Column(String)
     fund_house = Column(String)
     type = Column(String)  # Will store category like 'large_cap', etc.
+    latest_nav_date = Column(Date)  # Date of latest NAV for filtering by freshness
     
     suggestions = relationship('MutualFundSuggestion', back_populates='asset')
 
@@ -150,6 +151,25 @@ def get_session():
 
 def get_mutual_fund_engine(db_path='sqlite:///mutual_funds.db'):
     return create_engine(db_path, echo=False)
+
+def _add_missing_mutual_fund_columns(engine):
+    """Add any columns from the MutualFundAsset model that are missing from the table."""
+    from sqlalchemy import inspect, text
+    
+    inspector = inspect(engine)
+    if not inspector.has_table('mutual_fund_assets'):
+        return
+    
+    existing_cols = set(c['name'] for c in inspector.get_columns('mutual_fund_assets'))
+    
+    model_columns = {
+        'latest_nav_date': 'DATE',
+    }
+    
+    with engine.begin() as conn:
+        for col_name, col_type in model_columns.items():
+            if col_name not in existing_cols:
+                conn.execute(text(f'ALTER TABLE mutual_fund_assets ADD COLUMN "{col_name}" {col_type}'))
 
 def get_mutual_fund_session():
     engine = get_mutual_fund_engine()

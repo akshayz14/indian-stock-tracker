@@ -17,9 +17,9 @@
 
 ### Data Source
 - **Source**: `MutualFundSource` in `data_sources.py`
-- **API**: mfapi.in (free Indian mutual fund NAV API)
+- **API**: TigZig API (primary source for scheme discovery and NAV data)
 - **Data**: NAV (Net Asset Value) history for mutual fund schemes
-- **Symbol Format**: mfapi.in scheme code (e.g., "0P0000XVTS")
+- **Symbol Format**: TigZig scheme code (numeric)
 
 ### Database Schema
 - **Separate Database**: `mutual_funds.db` (isolated from `stocks.db`)
@@ -28,31 +28,41 @@
   - `mutual_fund_suggestions`: id, asset_id (FK), date, score, reasoning
 
 ### Scoring Methodology
-- **Returns Calculated**: 1Y, 3Y, 5Y CAGR returns
+- **Returns Calculated**: 1Y, 3Y, 5Y CAGR returns (3Y and 5Y optional - 1Y required minimum)
 - **Volatility**: Annualized standard deviation of daily returns
 - **Score Formula**:
   - If 5Y data available: `score = score_1y * 0.30 + score_3y * 0.40 + score_5y * 0.30`
   - Otherwise: `score = score_1y * 0.40 + score_3y * 0.60`
 - **Percentile Ranking**: Returns ranked within category
+- **Freshness Filter**: Funds must have NAV within 730 days (2 years) and at least one NAV within 365 days (1 year)
 
 ### Categories
 - Large Cap Funds
 - Mid Cap Funds
 - Small Cap Funds
-- Debt Funds
+- Debt Funds (with 18 sub-categories: Liquid, Ultra Short Duration, Low Duration, Money Market, Short Duration, Medium Duration, Medium to Long Duration, Long Duration, Dynamic Bond, Corporate Bond, Credit Risk, Banking and PSU, Gilt, Gilt with 10 Year Constant Duration, Floater, Overnight, Arbitrage, Conservative Hybrid)
 
 ### Processing Pipeline
 - `mutual_fund_db.py` main function:
-  1. Fetch all schemes from mfapi.in
-  2. Filter for Direct Growth funds
-  3. Calculate returns and volatility
-  4. Score funds within each category
-  5. Store top 50 per category in database
-  6. Export to CSV files (`top_large_cap_funds.csv`, etc.)
+  1. **Dynamic Scheme Discovery**: Search TigZig API with `plan="Direct"` and `option="Growth"` filters for each category
+  2. **Pagination Handling**: Fetch all pages for each category/sub-category
+  3. **Direct Growth Filtering**: Filter results for Direct Growth plan at API level
+  4. **NAV Fetching**: Fetch NAV history for each fund (sequential processing to avoid rate limits)
+  5. **Calculate Returns & Volatility**: 1Y, 3Y, 5Y CAGR returns and annualized volatility
+  6. **Score Funds**: Within each category using percentile ranking
+  7. **Store Top Funds**: Top 45 per category in database (target 30+ per category)
+  8. **Export CSV**: `top_large_cap_funds.csv`, `top_mid_cap_funds.csv`, `top_small_cap_funds.csv`, `top_debt_funds.csv`
+
+### Rate Limit Handling
+- Exponential backoff retry logic in `get_json()` (max 3 retries, base delay 2s, max delay 60s)
+- Sequential processing (no parallel threads) to avoid 429 errors
+- `REQUEST_DELAY = 0.3` seconds between requests
+- Skip logic: categories with ≥30 existing DB funds are skipped
 
 ### Web UI Integration
 - Route: `/mutual-funds`
 - Category filtering via URL parameter: `/mutual-funds?category=large_cap`
+- Freshness filtering: Only shows funds with `latest_nav_date >= today - 730 days`
 
 ## Data Flow
 
@@ -76,6 +86,11 @@
 - `scoring.MOMENTUM_WEIGHT`, `VOLUME_WEIGHT`: Scoring weights (default 0.7 / 0.3).
 - `flask_app.py` port: Default 8080 (avoid macOS AirPlay on 5000).
 - `.env` (optional): Future API keys (Alpha Vantage, Finnhub).
+- **Mutual Fund Config** (in `mutual_fund_db.py`):
+  - `TOP_N = 45` (target 30+ per category)
+  - `REQUEST_DELAY = 0.3` seconds
+  - `MAX_FUND_AGE_DAYS = 365` (relaxed for small/mid cap)
+  - `MAX_NO_RECENT_DATA_DAYS = 730`
 
 ## Extensibility
 
@@ -84,3 +99,4 @@
 - **New asset type**: Add `type` value in `DEFAULT_SYMBOLS`; ensure source supports it.
 - **Additional API endpoint**: Add route in `flask_app.py`; create template if UI needed.
 - **ML model**: Replace `calculate_momentum`/`calculate_volume_factor` with model inference.
+- **New mutual fund category**: Add to `DEBT_SUB_CATEGORIES` or new category in `mutual_fund_db.py`.

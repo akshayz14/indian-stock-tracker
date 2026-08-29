@@ -8,12 +8,15 @@ from nsetools import Nse  # Import NSE class
 import requests
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from stock_search_service import StockSearchService
 
 # In-memory cache for searched stock 60-day price history (TTL: 15 minutes)
 search_history_cache = {}
 SEARCH_HISTORY_CACHE_DURATION = timedelta(minutes=15)
+
+# Freshness threshold for mutual fund filtering (2 years = 730 days)
+MF_FRESHNESS_DAYS = 730
 
 app = Flask(__name__)
 
@@ -441,6 +444,13 @@ def mutual_funds():
         category_underscore = category.replace('-', '_')
         query = query.filter(MutualFundAsset.type == category_underscore)
         
+        # Filter out stale funds (latest NAV date older than 2 years)
+        freshness_cutoff = date.today() - timedelta(days=MF_FRESHNESS_DAYS)
+        query = query.filter(
+            MutualFundAsset.latest_nav_date.isnot(None),
+            MutualFundAsset.latest_nav_date >= freshness_cutoff
+        )
+        
         # Get top 50 by score
         top = query.order_by(MutualFundSuggestion.score.desc()).limit(50).all()
         
@@ -460,6 +470,9 @@ def top_mutual_funds():
     """Display top 50 mutual funds by score from stocks.db."""
     session = get_session()
     try:
+        # Filter out stale funds - if they haven't been scored in the last 2 years, they're not relevant
+        freshness_cutoff = date.today() - timedelta(days=MF_FRESHNESS_DAYS)
+        
         # Get top 50 mutual funds by score from stocks.db
         # Mutual funds are stored in the assets table with type='mutual_fund'
         top = (
@@ -469,6 +482,7 @@ def top_mutual_funds():
             )
             .join(Suggestion, Suggestion.asset_id == Asset.id)
             .filter(Asset.type == 'mutual_fund')
+            .filter(Suggestion.date >= freshness_cutoff)  # Filter by suggestion freshness
             .order_by(Suggestion.score.desc())
             .limit(50)
             .all()

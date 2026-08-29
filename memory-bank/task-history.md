@@ -1,0 +1,66 @@
+# Task History
+
+## 2026-08-30: Mutual Fund Dynamic Fetching from TigZig API - COMPLETED
+
+**Type**: Feature (Major Redesign)
+**Status**: Completed
+
+**Goal**: Redesign mutual fund tracker to dynamically fetch 30+ unique funds per category (large cap, mid cap, small cap, debt) from the TigZig API, replacing the hardcoded list of ~50 scheme codes, and store the top funds per category in the SQLite database.
+
+**Files Changed**:
+- `mutual_fund_db.py` (major rework - completely rewritten for dynamic fetching)
+
+**Key Changes**:
+- Removed hardcoded `get_all_schemes()` function
+- Added `search_schemes()` with `plan="Direct"` and `option="Growth"` query parameters
+- Added `fetch_all_schemes_for_category()` with pagination support for all categories
+- Added `fetch_and_filter_direct_growth()` to filter API results
+- Added `DEBT_SUB_CATEGORIES` dict with 18 sub-categories for debt category expansion
+- Added `DEBT_CATEGORY_MAPPING` for explicit debt category handling
+- Updated `process_fund()` to accept cached metadata from `search_schemes()` calls
+- Changed `TOP_N` from 40 to 45 to target 30+ funds per category
+- Added rate-limit handling with exponential backoff and retry logic in `get_json()`
+- Reduced `MAX_FUND_AGE_DAYS` to 365 and `MAX_NO_RECENT_DATA_DAYS` to 730 for small/mid cap leniency
+- Relaxed `calculate_score()` to accept funds with only 1-year return data
+- Added NaN score handling in `store_fund_in_db()` to prevent IntegrityError
+- Changed from `ThreadPoolExecutor` to sequential `process_funds_for_category()` to avoid 429 errors
+- Added skip logic: categories with ≥30 existing DB funds are skipped
+- Updated `get_category()` to handle TigZig API response format
+
+**Results**:
+- Large Cap: 33 funds (vs 30+ target)
+- Mid Cap: 45 funds (vs 30+ target)
+- Small Cap: 31 funds (vs 30+ target)
+- Debt: 45 funds (vs 30+ target)
+- Total: 154 funds in `mutual_funds.db`
+- Generated CSV files: `top_large_cap_funds.csv`, `top_mid_cap_funds.csv`, `top_small_cap_funds.csv`, `top_debt_funds.csv`
+
+**Challenges**:
+- Debt sub-categories initially yielded insufficient funds; expanded from 2 to 18 sub-categories
+- Small Cap only had 24 funds with old hardcoded list; dynamic fetching yielded 31
+- TigZig API rate limiting (429) required switching from parallel to sequential processing
+- NaN scores caused IntegrityError; fixed by converting to `float()` with fallback
+
+## 2026-08-29: Mutual Fund Freshness Filtering
+
+**Type**: Feature
+**Status**: Completed
+
+**Files Changed**:
+- `mutual_fund_db.py` - Added `is_fund_recent()` function and freshness thresholds
+- `models.py` - Added `latest_nav_date` column to `MutualFundAsset`
+- `flask_app.py` - Added freshness filtering to `/mutual-funds` and `/top-mutual-funds` routes
+- `migration.sql` - Added ALTER TABLE for `latest_nav_date` column
+- `tests/test_mutual_fund_freshness.py` - Created 12 tests for freshness logic
+
+**What Was Done**:
+1. Implemented `is_fund_recent()` function in `mutual_fund_db.py` that checks if a fund has at least one NAV within the last 2 years (730 days) AND at least one NAV within the last 1 year (365 days)
+2. Added `MAX_FUND_AGE_DAYS = 730` and `MAX_NO_RECENT_DATA_DAYS = 365` thresholds
+3. Integrated check in `process_fund()` to skip stale funds during ingestion
+4. Added `latest_nav_date` column to `MutualFundAsset` model
+5. Updated `store_fund_in_db()` to save `latest_nav_date`
+6. Added freshness filtering in Flask routes:
+   - `/mutual-funds`: Filters `MutualFundAsset.latest_nav_date >= today - 730 days`
+   - `/top-mutual-funds`: Filters `Suggestion.date >= today - 730 days`
+7. Added migration SQL to add `latest_nav_date` column to existing `mutual_funds.db`
+8. Created 12 comprehensive tests in `tests/test_mutual_fund_freshness.py`

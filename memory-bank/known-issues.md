@@ -39,7 +39,7 @@
 
 **Workaround**: Run `python mutual_fund_db.py` separately after running `python run_daily.py`.
 
-**Status**: Open
+**Status**: Open (as of 2026-08-30)
 
 ## 4. Mutual Fund Suggestion Testing Incomplete
 **Description**: The mutual fund suggestion generation and display functionality has been implemented but not fully tested.
@@ -52,7 +52,7 @@
 
 **Workaround**: Manual verification of mutual fund suggestion scores and rankings.
 
-**Status**: Open
+**Status**: Open (as of 2026-08-30) - 154 funds now in DB with valid scores
 
 ## 5. Search Functionality Cache May Serve Stale Data
 **Description**: The in-memory cache for stock search history (`search_history_cache` in `flask_app.py`) uses a fixed TTL of 1 hour but doesn't invalidate when new data is fetched for the same symbol.
@@ -74,6 +74,31 @@
 
 **Status**: Fixed (2026-08-29) — restored historical schedule time, but data freshness concern remains if 07:17 IST is consistently before market open.
 
+## 8. Mutual Fund Freshness Filtering Implemented
+
+**Description**: Implemented mutual fund freshness filtering mechanism to exclude funds not relevant for current investors (e.g., wound-up, merged, or defunct funds).
+
+**Location**:
+- Core logic: `mutual_fund_db.py` `is_fund_recent()` function
+- Processing: `mutual_fund_db.py` `process_fund()` function
+- Storage: `models.py` `MutualFundAsset.latest_nav_date` column
+- Display: `flask_app.py` `/mutual-funds` and `/top-mutual-funds` routes
+
+**Fix Applied**:
+1. Added freshness thresholds: `MAX_FUND_AGE_DAYS = 730` (2 years) and `MAX_NO_RECENT_DATA_DAYS = 365` (1 year)
+2. Added `is_fund_recent()` function to filter funds with stale NAV data
+3. Added `latest_nav_date` column to `MutualFundAsset` model for storage
+4. Integrated freshness check in `process_fund()` to skip stale funds during ingestion
+5. Added freshness filtering in Flask routes:
+   - `/mutual-funds`: Filters `MutualFundAsset.latest_nav_date >= today - 730 days`
+   - `/top-mutual-funds`: Filters `Suggestion.date >= today - 730 days` (proxy for fund activity)
+6. Added migration to add `latest_nav_date` column to existing `mutual_funds.db`
+7. Added 12 comprehensive tests in `tests/test_mutual_fund_freshness.py`
+
+**Impact**: Users will no longer see discontinued funds like "Principal Emerging Bluechip Fund - Direct Plan - Growth Option" (last NAV 2013) in mutual fund listings.
+
+**Status**: Fixed (2026-08-29)
+
 ## 7. Stock Detail Chart X-Axis Misleading Last Tick Label (Fixed)
 **Description**: On the stock detail page (`/stocks/<asset_id>`), the Chart.js price/volume charts used `maxTicksLimit: 10` which caused auto-skipping of x-axis tick labels. When the dataset had 14 data points, only 10 evenly-spaced labels were shown, and the last visible label was NOT the most recent date (e.g., showed `2026-08-19` when data went to `2026-08-27`). This misled users into thinking the chart ended at the last visible tick label.
 
@@ -82,3 +107,37 @@
 **Fix Applied**: Added logic to show ALL labels when `priceLabels.length <= 30` by setting `autoSkip: false` and removing `maxTicksLimit`. For larger datasets (>30), falls back to `maxTicksLimit: 10` with auto-skipping. This ensures the most recent date is always visible as the last tick label for typical datasets.
 
 **Status**: Fixed
+
+## 9. Mutual Fund Dynamic Fetching - COMPLETED
+**Description**: Redesigned mutual fund tracker to dynamically fetch 30+ unique funds per category (large cap, mid cap, small cap, debt) from the TigZig API instead of using a hardcoded list of ~50 scheme codes.
+
+**Location**: 
+- Core logic: `mutual_fund_db.py` (completely rewritten)
+- Functions: `search_schemes()`, `fetch_all_schemes_for_category()`, `fetch_and_filter_direct_growth()`, `process_fund()`
+
+**Implementation Details**:
+- Removed hardcoded `get_all_schemes()` function
+- Added dynamic fetching with pagination support for all categories
+- Implemented debt sub-category expansion to reach 30+ funds
+- Added Direct Growth filtering (plan=Direct, option=Growth)
+- Fixed category mapping to match TigZig API responses
+- Added rate-limit handling with exponential backoff and retry logic
+- Sequential processing to avoid TigZig API 429 errors
+- Updated freshness filtering for small/mid cap funds
+- Relaxed scoring to accept funds with only 1-year return data
+- Added NaN score handling in database storage
+
+**Results**:
+- Large Cap: 33 funds (vs 30+ target)
+- Mid Cap: 45 funds (vs 30+ target) 
+- Small Cap: 31 funds (vs 30+ target)
+- Debt: 45 funds (vs 30+ target)
+- Total: 154 funds in `mutual_funds.db`
+
+**CSV Output**:
+- `top_large_cap_funds.csv` (33 funds)
+- `top_mid_cap_funds.csv` (45 funds)
+- `top_small_cap_funds.csv` (31 funds)
+- `top_debt_funds.csv` (45 funds)
+
+**Status**: Completed (2026-08-30)
