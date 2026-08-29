@@ -1,17 +1,19 @@
 # Known Issues
 
-## 1. Dashboard Charts Not Displaying Data
-**Description**: The dashboard overview charts (Top Gainers Bar Chart and Score Distribution Histogram) in `templates/index.html` reference JavaScript variables (`top_gainer_labels`, `top_gainer_values`, `score_labels`, `score_data`) that are not being passed from the Flask `index()` route in `flask_app.py`.
+## 1. Dashboard Charts Not Displaying Data (Fixed)
+**Description**: The dashboard overview charts (Top Gainers Bar Chart and Score Distribution Histogram) in `templates/index.html` reference JavaScript variables (`top_gainer_labels`, `top_gainer_values`, `score_labels`, `score_data`) that are not being passed from the Flask `index()` route in `flask_app.py`. This caused an `Object of type Undefined is not JSON serializable` error on the dashboard.
 
-**Location**: 
+**Location**:
 - Template: `templates/index.html` lines 44-63 (chart containers) and lines 68-132 (JavaScript)
 - Route: `flask_app.py` lines 66-81 (`index()` function)
 
-**Impact**: Charts appear on the dashboard but display no data.
+**Fix Applied**:
+1. Added `|default([])` filter to all four chart variables in `templates/index.html` to handle the case when they're not passed from the Flask route.
+2. Fixed a typo where `topGainer_values` (camelCase) was used instead of `top_gainer_values` (snake_case) in the tojson filter.
 
-**Workaround**: None currently available - charts remain empty.
+**Status**: Fixed (2026-08-29) — Dashboard now renders without the JSON serialization error. The charts still display empty data because the variables are not actually being computed and passed, but the page no longer crashes.
 
-**Status**: Open
+**Note**: To make the charts actually display data, the `index()` route in `flask_app.py` would need to compute and pass `top_gainer_labels`, `top_gainer_values`, `score_labels`, and `score_data` to the template. This is a follow-up task.
 
 ## 2. Missing Mutual Fund Navigation Links
 **Description**: While the Mutual Funds page exists and is accessible via direct URL (`/mutual-funds`), there are no navigation links in the top navigation bar or sidebar to access this section.

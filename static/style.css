@@ -366,6 +366,28 @@ table.data .name { color: var(--muted); font-size: 11px; }
   box-shadow: var(--shadow);
 }
 
+/* Smart tooltip positioning: prevent overflow at page edges */
+.tooltip-btn[data-tooltip-position="top-left"]::after {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+
+.tooltip-btn[data-tooltip-position="top-right"]::after {
+  left: 0;
+  right: auto;
+  transform: none;
+}
+
+/* Mobile: always anchor tooltip to left for readability */
+@media (max-width: 768px) {
+  .tooltip-btn[data-tooltip-position="top-left"]::after,
+  .tooltip-btn[data-tooltip-position="top-right"]::after {
+    width: 90vw;
+    font-size: 11px;
+  }
+}
+
 /* ===== Responsive Design ===== */
 
 /* Tablet (768px and below) */

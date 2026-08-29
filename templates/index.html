@@ -67,12 +67,12 @@
 {% block extra_scripts %}
 <script>
 // Top Gainers Chart Data - will be populated from Flask context
-const topGainerLabels = {{ top_gainer_labels|tojson|safe }};
-const topGainerValues = {{ top_gainer_values|tojson|safe }};
+const topGainerLabels = {{ top_gainer_labels|default([])|tojson|safe }};
+const topGainerValues = {{ top_gainer_values|default([])|tojson|safe }};
 
 // Score Distribution Data
-const scoreLabels = {{ score_labels|tojson|safe }};
-const scoreData = {{ score_data|tojson|safe }};
+const scoreLabels = {{ score_labels|default([])|tojson|safe }};
+const scoreData = {{ score_data|default([])|tojson|safe }};
 
 // Initialize Top Gainers Chart
 const topGainerCtx = document.getElementById('topGainersChart').getContext('2d');

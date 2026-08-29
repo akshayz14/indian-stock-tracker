@@ -1,4 +1,45 @@
 {% extends "base.html" %}
+{% block extra_scripts %}
+<script>
+// Smart tooltip positioning: prevent overflow at page edges
+(function() {
+    const TOOLTIP_WIDTH = 320; // matches CSS width: 320px
+    const EDGE_MARGIN = 16;    // minimum margin from viewport edge
+    
+    function positionTooltip(btn) {
+        const rect = btn.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        
+        // Calculate space on each side of the button
+        const spaceRight = viewportWidth - rect.right;
+        const spaceLeft = rect.left;
+        
+        // Reset any previous position attribute
+        btn.removeAttribute('data-tooltip-position');
+        
+        // If centered tooltip would overflow on the right, anchor it to the right of the button
+        if (spaceRight < TOOLTIP_WIDTH / 2) {
+            btn.setAttribute('data-tooltip-position', 'top-left');
+        }
+        // If centered tooltip would overflow on the left, anchor it to the left of the button
+        else if (spaceLeft < TOOLTIP_WIDTH / 2) {
+            btn.setAttribute('data-tooltip-position', 'top-right');
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const tooltipBtns = document.querySelectorAll('.tooltip-btn');
+        
+        tooltipBtns.forEach(function(btn) {
+            btn.addEventListener('mouseenter', function() {
+                positionTooltip(this);
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}
+
 {% block title %}Suggestions{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -26,7 +67,9 @@
     </div>
     <button class="btn" type="submit">Apply Filters</button>
     <a class="btn secondary" href="/suggestions">Reset</a>
-    <button class="btn secondary" onmouseenter="showHint()" onmouseleave="hideHint()">Hint</button>
+    <button class="btn secondary tooltip-btn" data-tooltip="This page shows top-scoring stocks based on momentum and volume strategy. Use filters to narrow down results by stock and date range. Scores range from 0 to 1, with higher scores indicating stronger momentum and volume characteristics.">
+Hint
+</button>
 </form>
 
 <div class="card">
