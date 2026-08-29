@@ -52,6 +52,21 @@
     </div>
 </div>
 
+<!-- Pagination -->
+<div class="pagination">
+    {% if has_prev %}
+    <a href="?page={{ page - 1 }}{% if asset_id %}&asset_id={{ asset_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">← Previous</a>
+    {% else %}
+    <span class="disabled">← Previous</span>
+    {% endif %}
+    <span>Page {{ page }} of {{ total_pages }}</span>
+    {% if has_next %}
+    <a href="?page={{ page + 1 }}{% if asset_id %}&asset_id={{ asset_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">Next →</a>
+    {% else %}
+    <span class="disabled">Next →</span>
+    {% endif %}
+</div>
+
 <!-- Score Distribution Chart -->
 <div class="card" style="margin-top:32px;">
     <h2 style="margin-top:0;font-size:18px;">Score Distribution</h3>
