@@ -67,46 +67,5 @@
     {% endif %}
 </div>
 
-<!-- Score Distribution Chart -->
-<div class="card" style="margin-top:32px;">
-    <h2 style="margin-top:0;font-size:18px;">Score Distribution</h3>
-    <div class="chart-container" style="position: relative; height: 250px;">
-        <canvas id="scoreChart"></canvas>
-    </div>
-</div>
 
-<script>
-// Score Distribution Chart
-const scoreChartCtx = document.getElementById('scoreChart').getContext('2d');
-const scoreChartData = {
-    labels: {{ score_labels|tojson|safe }},
-    datasets: [{
-        label: 'Score Frequency',
-        data: {{ score_counts|tojson|safe }},
-        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-        borderColor: 'rgb(59, 130, 246)',
-        borderWidth: 1
-    }]
-};
-
-new Chart(scoreChartCtx, {
-    type: 'bar',
-    data: scoreChartData,
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { 
-                grid: { display: false },
-                ticks: { maxTicksLimit: 8 }
-            },
-            y: {
-                grid: { color: 'rgba(0,0,0,0.05)' },
-                ticks: { callback: function(value) { return value; } }
-            }
-        }
-    }
-});
-</script>
 {% endblock %}

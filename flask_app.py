@@ -150,7 +150,7 @@ def get_price_history(asset_id, show_latest_days=60):
         result = []
         for price in price_history:
             result.append({
-                'date': price.date.isoformat() if price.date else None,
+                'date': price.date.strftime('%d-%m-%Y') if price.date else None,
                 'open': price.open,
                 'high': price.high,
                 'low': price.low,
@@ -221,9 +221,9 @@ def prices():
             # Default to stocks only (exclude mutual funds, which have NAV-only rows)
             query = query.filter(Asset.type != 'mutual_fund')
         if start_date:
-            query = query.filter(DailyPrice.date >= datetime.datetime.strptime(start_date, '%d-%m-%Y').date())
+            query = query.filter(DailyPrice.date >= datetime.strptime(start_date, '%Y-%m-%d').date())
         if end_date:
-            query = query.filter(DailyPrice.date <= datetime.datetime.strptime(end_date, '%d-%m-%Y').date())
+            query = query.filter(DailyPrice.date <= datetime.strptime(end_date, '%Y-%m-%d').date())
         
         # Get all assets for filter dropdown
         assets = session.query(Asset).order_by(Asset.symbol).all()
@@ -270,9 +270,9 @@ def suggestions():
         if asset_type:
             query = query.filter(Asset.type == asset_type)
         if start_date:
-            query = query.filter(Suggestion.date >= datetime.datetime.strptime(start_date, '%d-%m-%Y').date())
+            query = query.filter(Suggestion.date >= datetime.strptime(start_date, '%Y-%m-%d').date())
         if end_date:
-            query = query.filter(Suggestion.date <= datetime.datetime.strptime(end_date, '%d-%m-%Y').date())
+            query = query.filter(Suggestion.date <= datetime.strptime(end_date, '%Y-%m-%d').date())
         
         # Get all assets for filter dropdown
         assets = session.query(Asset).order_by(Asset.symbol).all()
@@ -284,18 +284,6 @@ def suggestions():
         suggestions = query.order_by(Suggestion.date.desc()).offset((page - 1) * per_page).limit(per_page).all()
         
         total_pages = max(1, (total + per_page - 1) // per_page)
-        # Compute score distribution for chart
-        score_labels = []
-        score_counts = []
-        if suggestions:
-            scores = [s[0].score for s in suggestions if s[0].score is not None]
-            if scores:
-                # Simple binning for chart
-                bins = [0, 20, 40, 60, 80, 100]
-                for i in range(len(bins)-1):
-                    count = sum(1 for s in scores if bins[i] <= s < bins[i+1])
-                    score_labels.append(f"{bins[i]}-{bins[i+1]}")
-                    score_counts.append(count)
         
         return render_template('suggestions.html',
             suggestions=suggestions,
@@ -309,8 +297,6 @@ def suggestions():
             start_date=start_date,
             end_date=end_date,
             asset_type=asset_type,
-            score_labels=score_labels,
-            score_counts=score_counts,
             active='suggestions')
     finally:
         session.close()
@@ -349,7 +335,7 @@ def api_prices():
         prices = query.order_by(DailyPrice.date.desc()).limit(days).all()
         
         return jsonify([{
-            'date': price[0].date.isoformat(),
+            'date': price[0].date.strftime('%d-%m-%Y'),
             'asset_symbol': price[1].symbol,
             'open': price[0].open,
             'high': price[0].high,

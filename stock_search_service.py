@@ -105,7 +105,7 @@ class StockSearchService:
             records = []
             for date, row in hist.iterrows():
                 records.append({
-                    "date": date.strftime('%Y-%m-%d'),
+                    "date": date.strftime('%d-%m-%Y'),
                     "open": float(row["Open"]),
                     "high": float(row["High"]),
                     "low": float(row["Low"]),

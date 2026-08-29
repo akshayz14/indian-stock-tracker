@@ -16,7 +16,7 @@
    - Store mutual fund assets and suggestions in separate `mutual_funds.db` database.
 
 4. **CLI**
-   - `python cli.py [--date YYYY-MM-DD]` prints top suggestions for a given date.
+   - `python cli.py [--date dd-mm-yyyy]` prints top suggestions for a given date.
 
 5. **Automation**
    - `run_daily.py` fetches, scores, stores, and prints equity suggestions; intended for cr   - `run_daily.py` fetches, scores, stores, and prints equity sugg fetches NAV, calculates scores, stores in DB, and exports to CSV.
