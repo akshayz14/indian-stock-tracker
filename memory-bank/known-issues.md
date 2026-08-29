@@ -63,7 +63,16 @@
 
 **Status**: Open (considered low priority)
 
-## 6. Stock Detail Chart X-Axis Misleading Last Tick Label (Fixed)
+## 6. GitHub Actions Cron Schedule Ran Before NSE Market Open (Fixed)
+**Description**: The scheduled workflow in `.github/workflows/update-stock-data.yml` was set to `cron: '0 0 * * *'` which corresponds to **00:00 UTC = 05:30 IST**. This runs **before NSE market opens** (09:15-15:30 IST), meaning the data fetcher would either fail to get same-day data or fall back to stale previous-day data.
+
+**Location**: `.github/workflows/update-stock-data.yml` line 5
+
+**Fix Applied**: Changed cron to `47 1 * * *` which is **01:47 UTC = 07:17 IST**, matching the previous historical schedule shown in the Actions history (07:17-07:20 IST). **Note**: This is still before market open, so if same-day data is required, the schedule should be changed to something like `15 7 * * *` (07:15 UTC = 12:45 IST) once market is open and intraday data is reliably available.
+
+**Status**: Fixed (2026-08-29) — restored historical schedule time, but data freshness concern remains if 07:17 IST is consistently before market open.
+
+## 7. Stock Detail Chart X-Axis Misleading Last Tick Label (Fixed)
 **Description**: On the stock detail page (`/stocks/<asset_id>`), the Chart.js price/volume charts used `maxTicksLimit: 10` which caused auto-skipping of x-axis tick labels. When the dataset had 14 data points, only 10 evenly-spaced labels were shown, and the last visible label was NOT the most recent date (e.g., showed `2026-08-19` when data went to `2026-08-27`). This misled users into thinking the chart ended at the last visible tick label.
 
 **Location**: `templates/stock_detail.html` lines 119-216 (chart JavaScript)
