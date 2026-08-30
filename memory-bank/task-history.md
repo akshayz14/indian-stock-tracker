@@ -1,5 +1,28 @@
 # Task History
 
+## 2026-08-30: Change Top 50 Mutual Funds to use mutual_funds.db - COMPLETED
+
+**Type**: Feature (Data Source Change)
+**Status**: Completed
+
+**Goal**: Change the `/top-mutual-funds` Flask route to pull top 50 mutual funds from the dedicated `mutual_funds.db` database instead of the legacy `stocks.db` data source.
+
+**Files Changed**:
+- `flask_app.py` - Updated `top_mutual_funds()` route to use `get_mutual_fund_session()` and `MutualFundAsset`/`MutualFundSuggestion` models instead of `get_session()` and `Asset`/`Suggestion`
+- `templates/top_mutual_funds.html` - Updated field mappings to use `scheme_name`, `scheme_code`, and `fund_house` instead of `name`, `symbol`, and `exchange`
+
+**Key Changes**:
+- Switched database from `stocks.db` to `mutual_funds.db` via `get_mutual_fund_session()`
+- Changed models from `Asset`/`Suggestion` to `MutualFundAsset`/`MutualFundSuggestion`
+- Changed freshness filter from `Suggestion.date` to `MutualFundAsset.latest_nav_date`
+- Updated template field mappings to match `MutualFundAsset` model
+
+**Results**:
+- Top 50 funds now ranked globally across all categories (Debt, Large Cap, Mid Cap, Small Cap)
+- Scores are based on category percentile rankings already stored in `mutual_funds.db`
+- 154 funds available for selection; 50 returned by the query
+- Route tested and returning HTTP 200 with correct fund names and scores
+
 ## 2026-08-30: Mutual Fund Dynamic Fetching from TigZig API - COMPLETED
 
 **Type**: Feature (Major Redesign)

@@ -6,6 +6,11 @@
 - Database files `stocks.db` and `mutual_funds.db` exist and are populated.
 - Dependencies listed in `requirements.txt`; some may need installation.
 
+## Recent Changes (2026-08-30)
+- Updated `/top-mutual-funds` route in `flask_app.py` to query from `mutual_funds.db` instead of `stocks.db`
+- Updated `templates/top_mutual_funds.html` to use correct field mappings for `MutualFundAsset` model (scheme_name, scheme_code, fund_house)
+- Top 50 mutual funds now ranked globally across all categories (Large Cap, Mid Cap, Small Cap, Debt) from `mutual_funds.db`
+
 ## Codebase Structure
 - **Models**: `models.py` defines SQLAlchemy ORM tables (`Asset`, `DailyPrice`, `Suggestion`, `MutualFundAsset`, `MutualFundSuggestion`) and session helpers.
 - **Data Sources**: `data_sources.py` contains `DataSource` abstraction with implementations: `NSESource`, `YFinanceSource`, `MutualFundSource`.

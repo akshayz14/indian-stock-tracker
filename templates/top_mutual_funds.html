@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head">
     <h1>Top 50 Mutual Funds</h1>
-    <p>Top 50 mutual funds by score across all types(Large Cap, Mid Cap, Small Cap, Debt)</p>
+    <p>Top 50 mutual funds by score across all categories (Large Cap, Mid Cap, Small Cap, Debt)</p>
 </div>
 
 <div class="fund-filters">
@@ -21,7 +21,7 @@
                 <tr>
                     <th>#</th>
                     <th>Scheme</th>
-                    <th>Symbol</th>
+                    <th>Scheme Code</th>
                     <th>Fund House</th>
                     <th>Category</th>
                     <th>Score</th>
@@ -32,11 +32,11 @@
                 <tr>
                     <td class="mono">{{ loop.index }}</td>
                     <td>
-                        <a class="link" href="/top-mutual-funds">{{ entry.asset.name }}</a>
-                        <div class="name">{{ entry.asset.symbol }}</div>
+                        <a class="link" href="/mutual-funds/{{ entry.asset.scheme_code }}">{{ entry.asset.scheme_name }}</a>
+                        <div class="name">{{ entry.asset.scheme_code }}</div>
                     </td>
-                    <td>{{ entry.asset.symbol }}</td>
-                    <td>{{ entry.asset.exchange }}</td>
+                    <td class="mono">{{ entry.asset.scheme_code }}</td>
+                    <td>{{ entry.asset.fund_house }}</td>
                     <td>{{ entry.asset.type }}</td>
                     <td class="mono">
                         {% if entry.suggestion %}

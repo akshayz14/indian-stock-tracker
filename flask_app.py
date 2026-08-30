@@ -467,23 +467,21 @@ def mutual_funds():
 @app.route('/top-mutual-funds')
 @login_required
 def top_mutual_funds():
-    """Display top 50 mutual funds by score from stocks.db."""
-    session = get_session()
+    """Display top 50 mutual funds by score from mutual_funds.db."""
+    session = get_mutual_fund_session()
     try:
-        # Filter out stale funds - if they haven't been scored in the last 2 years, they're not relevant
+        # Filter out stale funds - if they haven't had NAV updates in the last 2 years, they're not relevant
         freshness_cutoff = date.today() - timedelta(days=MF_FRESHNESS_DAYS)
         
-        # Get top 50 mutual funds by score from stocks.db
-        # Mutual funds are stored in the assets table with type='mutual_fund'
+        # Get top 50 mutual funds by score from mutual_funds.db
         top = (
             session.query(
-                Asset,
-                Suggestion
+                MutualFundAsset,
+                MutualFundSuggestion
             )
-            .join(Suggestion, Suggestion.asset_id == Asset.id)
-            .filter(Asset.type == 'mutual_fund')
-            .filter(Suggestion.date >= freshness_cutoff)  # Filter by suggestion freshness
-            .order_by(Suggestion.score.desc())
+            .join(MutualFundSuggestion, MutualFundSuggestion.asset_id == MutualFundAsset.id)
+            .filter(MutualFundAsset.latest_nav_date >= freshness_cutoff)  # Filter by NAV freshness
+            .order_by(MutualFundSuggestion.score.desc())
             .limit(50)
             .all()
         )
