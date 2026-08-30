@@ -141,3 +141,19 @@
 - `top_debt_funds.csv` (45 funds)
 
 **Status**: Completed (2026-08-30)
+
+## 10. fetch_history Returned Oldest Records Instead of Most Recent (Fixed)
+**Description**: The `YFinanceSource.fetch_history()` method in `data_sources.py` had a bug where it would break out of the loop after collecting `limit` records. Since yfinance returns records in chronological order (oldest-first), this meant the function was returning the OLDEST 60 days instead of the most recent 60 days. As a result, the database was always being populated with stale data (e.g., 2026-03 to 2026-06) even when current data was available from yfinance. This caused `detect_and_store_holidays()` to incorrectly mark all recent weekdays as holidays because no data existed for them.
+
+**Location**: `data_sources.py` lines 105-137 (`YFinanceSource.fetch_history()` method)
+
+**Fix Applied**:
+1. Removed the `if len(records) >= limit: break` check that stopped collection at the first 60 records
+2. Added `return records[-limit:]` at the end to take the LAST `limit` records (the most recent ones)
+
+**Impact**: 
+- Before fix: DB had 3000 trading rows (50×60 days) but only for old data range (2026-03-02 to 2026-06-01)
+- After fix: DB has 3000 trading rows (50×60 days) for the current data range (2026-06-27 to 2026-08-28)
+- 45 suggestions are now being generated correctly for the most recent date
+
+**Status**: Fixed (2026-08-30)

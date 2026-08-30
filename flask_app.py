@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from models import Asset, DailyPrice, Suggestion, MutualFundAsset, MutualFundSuggestion, get_session, get_mutual_fund_session, get_mutual_fund_engine
+from scoring2 import calculate_score
 import datetime
 from functools import wraps
 from nsetools import Nse  # Import NSE class
@@ -279,15 +280,33 @@ def suggestions():
         
         # Get all assets for filter dropdown
         assets = session.query(Asset).order_by(Asset.symbol).all()
-        
+
+        # Get available date range for filter form min/max attributes
+        min_date_result = session.query(Suggestion.date).order_by(Suggestion.date.asc()).first()
+        max_date_result = session.query(Suggestion.date).order_by(Suggestion.date.desc()).first()
+        min_available_date = min_date_result[0] if min_date_result else None
+        max_available_date = max_date_result[0] if max_date_result else None
+
         # Paginate
         page = request.args.get('page', 1, type=int)
         per_page = 20
         total = query.count()
         suggestions = query.order_by(Suggestion.date.desc()).offset((page - 1) * per_page).limit(per_page).all()
-        
+
         total_pages = max(1, (total + per_page - 1) // per_page)
-        
+
+        # Build helpful empty-state message explaining why no results were found
+        empty_message = None
+        if total == 0:
+            if min_available_date and max_available_date:
+                empty_message = (
+                    f"No suggestions found for the selected filters. "
+                    f"Available data ranges from {min_available_date.strftime('%d-%m-%Y')} "
+                    f"to {max_available_date.strftime('%d-%m-%Y')}."
+                )
+            else:
+                empty_message = "No suggestions found."
+
         return render_template('suggestions.html',
             suggestions=suggestions,
             stocks=assets,
@@ -300,6 +319,9 @@ def suggestions():
             start_date=start_date,
             end_date=end_date,
             asset_type=asset_type,
+            min_available_date=min_available_date,
+            max_available_date=max_available_date,
+            empty_message=empty_message,
             active='suggestions')
     finally:
         session.close()
@@ -349,6 +371,125 @@ def api_prices():
         } for price in prices])
     finally:
         session.close()
+
+
+@app.route('/api/suggestions')
+@login_required
+def api_suggestions():
+    """API endpoint to get suggestions for a date or date range.
+
+    Query parameters:
+        date: Single date YYYY-MM-DD (default: latest available)
+        start_date: Start date YYYY-MM-DD (inclusive)
+        end_date: End date YYYY-MM-DD (inclusive)
+
+    Returns suggestions for each date in the range, or latest if no range specified.
+    """
+    session = get_db_session()
+    try:
+        # Parse dates manually (Flask type= lambda has compatibility issues)
+        from datetime import datetime as _dt
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        single_date_str = request.args.get('date')
+        start_date = _dt.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else None
+        end_date = _dt.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else None
+        target_date = _dt.strptime(single_date_str, '%Y-%m-%d').date() if single_date_str else None
+
+        if start_date and end_date:
+            dates = []
+            current = start_date
+            while current <= end_date:
+                dates.append(current)
+                current += timedelta(days=1)
+            
+            results = []
+            for single_date in dates:
+                prices = (
+                    session.query(DailyPrice)
+                    .join(Asset, DailyPrice.asset_id == Asset.id)
+                    .filter(
+                        DailyPrice.date == single_date,
+                        Asset.type != 'mutual_fund',
+                        DailyPrice.is_holiday == False
+                    )
+                    .all()
+                )
+                
+                date_suggestions = []
+                for price in prices:
+                    if price.close is None:
+                        continue
+                    score = calculate_score(price)
+                    eff_open = price.open if price.open is not None else price.close
+                    momentum_pct = (price.close - eff_open) / eff_open if eff_open else 0
+                    hi = price.high if price.high is not None else price.close
+                    lo = price.low if price.low is not None else price.close
+                    day_range = hi - lo
+                    close_strength = (price.close - lo) / day_range if day_range else 0.5
+                    
+                    date_suggestions.append({
+                        'symbol': price.asset.symbol,
+                        'score': round(score, 4),
+                        'reasoning': f"Momentum: {momentum_pct:.2%} | Volume: {price.volume:,:,} | Close strength: {close_strength:.2%}"
+                    })
+                
+                results.append({
+                    'date': single_date.strftime('%d-%m-%Y'),
+                    'trading_day': len(prices) > 0,
+                    'suggestions': date_suggestions
+                })
+            
+            return jsonify({
+                'range': f"{start_date.strftime('%d-%m-%Y')} to {end_date.strftime('%d-%m-%Y')}",
+                'total_dates': len(results),
+                'results': results
+            })
+        # target_date already set from query param above
+        if not target_date:
+            target_date = (
+                session.query(DailyPrice.date)
+                .order_by(DailyPrice.date.desc())
+                .first()[0]
+            )
+        
+        prices = (
+            session.query(DailyPrice)
+            .join(Asset, DailyPrice.asset_id == Asset.id)
+            .filter(
+                DailyPrice.date == target_date,
+                Asset.type != 'mutual_fund',
+                DailyPrice.is_holiday == False
+            )
+            .all()
+        )
+        
+        results = []
+        for price in prices:
+            if price.close is None:
+                continue
+            score = calculate_score(price)
+            eff_open = price.open if price.open is not None else price.close
+            momentum_pct = (price.close - eff_open) / eff_open if eff_open else 0
+            hi = price.high if price.high is not None else price.close
+            lo = price.low if price.low is not None else price.close
+            day_range = hi - lo
+            close_strength = (price.close - lo) / day_range if day_range else 0.5
+            
+            results.append({
+                'symbol': price.asset.symbol,
+                'score': round(score, 4),
+                'reasoning': f"Momentum: {momentum_pct:.2%} | Volume: {price.volume:,:,} | Close strength: {close_strength:.2%}"
+            })
+        
+        return jsonify({
+            'date': target_date.strftime('%d-%m-%Y'),
+            'suggestions': results,
+            'total_suggestions': len(results)
+        })
+    finally:
+        session.close()
+
 
 @app.route('/gainers-losers')
 @login_required

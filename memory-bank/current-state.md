@@ -7,9 +7,18 @@
 - Dependencies listed in `requirements.txt`; some may need installation.
 
 ## Recent Changes (2026-08-30)
+- Fixed critical bug in `data_sources.py` `YFinanceSource.fetch_history()` method that was returning OLDEST 60 days instead of most recent 60 days
+  - Removed `if len(records) >= limit: break` check that stopped collection early
+  - Added `return records[-limit:]` to take the most recent records
+  - This allows `detect_and_store_holidays()` to correctly identify missing data instead of incorrectly marking recent weekdays as holidays
+- Fixed `run_daily.py` to generate suggestions for ALL dates in the 60-day window, not just the most recent date
+  - Now queries all distinct dates from the last 60 days and calls `generate_suggestions()` for each date
+  - Collects top 50 suggestions per day and sorts by score globally to show the best opportunities across the entire window
+  - Database now stores 2145+ suggestions across 43 trading dates (2026-07-01 to 2026-08-28)
 - Updated `/top-mutual-funds` route in `flask_app.py` to query from `mutual_funds.db` instead of `stocks.db`
 - Updated `templates/top_mutual_funds.html` to use correct field mappings for `MutualFundAsset` model (scheme_name, scheme_code, fund_house)
 - Top 50 mutual funds now ranked globally across all categories (Large Cap, Mid Cap, Small Cap, Debt) from `mutual_funds.db`
+- Removed mutual fund suggestion generation from `run_daily.py` (lines 28-32 and import)
 
 ## Codebase Structure
 - **Models**: `models.py` defines SQLAlchemy ORM tables (`Asset`, `DailyPrice`, `Suggestion`, `MutualFundAsset`, `MutualFundSuggestion`) and session helpers.
@@ -17,7 +26,7 @@
 - **Data Fetching**: `data_fetcher.py` orchestrates fetching and storing daily prices.
 - **Scoring**: `scoring2.py` implements momentum, volume, RSI, MA, close-strength, and gap-up scoring, and `generate_suggestions()` / `generate_mf_suggestions()`.
 - **Mutual Fund Processing**: `mutual_fund_db.py` fetches NAV data from TigZig API, scores funds, and stores in separate database.
-- **Orchestration**: `run_daily.py` runs the full pipeline (fetch → store → score → print).
+- **Orchestration**: `run_daily.py` runs the full pipeline (fetch → store → score → print), generating suggestions for all 60 days of trading data.
 - **CLI**: `cli.py` provides command-line interface for querying suggestions.
 - **Web UI**: `flask_app.py` with Jinja2 templates provides browser UI and JSON APIs, including `/mutual-funds` endpoint.
 

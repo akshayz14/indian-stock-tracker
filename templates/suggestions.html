@@ -45,6 +45,12 @@
 <div class="page-head">
     <h1>Suggestions</h1>
     <p>Top-scoring stocks by momentum + volume strategy</p>
+    {% if suggestions %}
+    <p class="meta">Data as of {{ suggestions[0][0].date|ddmmmyyyy }}</p>
+    {% endif %}
+    {% if min_available_date and max_available_date %}
+    <p class="meta-date-range">Available data: {{ min_available_date.strftime('%d-%m-%Y') }} to {{ max_available_date.strftime('%d-%m-%Y') }}</p>
+    {% endif %}
 </div>
 
 <form class="filters" method="get" action="/suggestions">
@@ -59,11 +65,15 @@
     </div>
     <div class="field">
         <label for="start_date">From</label>
-        <input type="date" name="start_date" id="start_date" value="{{ start_date|default('') }}">
+        <input type="date" name="start_date" id="start_date" value="{{ start_date|default('') }}"
+               {% if min_available_date %}min="{{ min_available_date.strftime('%Y-%m-%d') }}"{% endif %}
+               {% if max_available_date %}max="{{ max_available_date.strftime('%Y-%m-%d') }}"{% endif %}>
     </div>
     <div class="field">
         <label for="end_date">To</label>
-        <input type="date" name="end_date" id="end_date" value="{{ end_date|default('') }}">
+        <input type="date" name="end_date" id="end_date" value="{{ end_date|default('') }}"
+               {% if min_available_date %}min="{{ min_available_date.strftime('%Y-%m-%d') }}"{% endif %}
+               {% if max_available_date %}max="{{ max_available_date.strftime('%Y-%m-%d') }}"{% endif %}>
     </div>
     <button class="btn" type="submit">Apply Filters</button>
     <a class="btn secondary" href="/suggestions">Reset</a>
@@ -88,7 +98,11 @@ Hint
                     <td>{{ suggestion[0].reasoning }}</td>
                 </tr>
                 {% else %}
+                {% if empty_message %}
+                <tr><td colspan="5" class="empty">{{ empty_message }}</td></tr>
+                {% else %}
                 <tr><td colspan="5" class="empty">No suggestions found.</td></tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
