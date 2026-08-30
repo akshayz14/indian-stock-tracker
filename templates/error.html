@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ error_title }}{% endblock %}
+{% block content %}
+<div class="error-page">
+    <div class="error-icon" aria-hidden="true">⚠️</div>
+    <h1 class="error-title">{{ error_title }}</h1>
+    <p class="error-message">{{ error_message }}</p>
+
+    {% if error_details %}
+    <details class="error-details">
+        <summary>Technical details</summary>
+        <pre class="error-details-text">{{ error_details }}</pre>
+    </details>
+    {% endif %}
+
+    <div class="error-actions">
+        <a href="{{ back_url|default('/') }}" class="btn">{{ back_label|default('← Go back') }}</a>
+        <a href="/" class="btn secondary">Go to Dashboard</a>
+    </div>
+</div>
+
+<style>
+.error-page {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 40px 24px;
+    text-align: center;
+    max-width: 640px;
+    margin: 24px auto;
+}
+.error-icon {
+    font-size: 48px;
+    line-height: 1;
+    margin-bottom: 12px;
+}
+.error-title {
+    margin: 0 0 8px 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+}
+.error-message {
+    margin: 0 0 16px 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.5;
+}
+.error-details {
+    margin: 16px auto 20px;
+    text-align: left;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    max-width: 560px;
+}
+.error-details summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+.error-details-text {
+    margin: 8px 0 0 0;
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.error-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+@media (max-width: 480px) {
+    .error-page { padding: 28px 16px; }
+    .error-title { font-size: 18px; }
+    .error-message { font-size: 14px; }
+    .error-actions .btn { width: 100%; }
+}
+</style>
+{% endblock %}

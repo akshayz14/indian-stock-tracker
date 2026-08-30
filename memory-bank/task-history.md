@@ -64,3 +64,34 @@
    - `/top-mutual-funds`: Filters `Suggestion.date >= today - 730 days`
 7. Added migration SQL to add `latest_nav_date` column to existing `mutual_funds.db`
 8. Created 12 comprehensive tests in `tests/test_mutual_fund_freshness.py`
+
+## 2026-08-30: Friendly Error Pages for API Failures - COMPLETED
+
+**Type**: Bug Fix / UX Improvement
+**Status**: Completed
+
+**Goal**: Replace raw HTML error strings (e.g., `Error fetching mutual fund details: 502 Server Error: Bad Gateway for url: https://api.mfapi.in/mf/118479`) returned from API-failing routes with a styled, user-friendly error page that fits the app's design.
+
+**Files Changed**:
+- `flask_app.py` - Added `categorize_error()` helper; updated `/mutual-funds/<scheme_code>` route
+- `templates/error.html` (new) - Reusable error page that extends `base.html`
+- `tests/test_error_handling.py` (new) - 9 unit tests for `categorize_error()`
+- `tests/test_error_route.py` (new) - 4 integration tests for the `/mutual-funds/<scheme_code>` error path
+
+**Key Changes**:
+- Added `categorize_error(error_message)` that maps raw `requests`/`HTTPError` strings to `(title, message, status_code)` tuples for 404, 500, 502, 503, 504, timeouts, and connection errors.
+- Updated `/mutual-funds/<scheme_code>` to call `categorize_error()` on failure and render `templates/error.html` with the correct HTTP status code.
+- Created reusable `templates/error.html` with: warning icon, friendly title, message, collapsible `<details>` for the raw error, and "Back" + "Dashboard" buttons.
+- All styling uses existing CSS variables (`--card`, `--text`, `--muted`, `--border`, `--bg`) for visual consistency. Mobile responsive (≤480px).
+
+**Coverage**:
+- 502 Bad Gateway → "Service Temporarily Unavailable" (502)
+- 503 Service Unavailable → "Service Temporarily Unavailable" (503)
+- 504 Gateway Timeout → "Gateway Timeout" (504)
+- Read timed out → "Request Timed Out" (504)
+- Connection errors / Max retries exceeded → "Connection Error" (503)
+- 404 → "Not Found" (404)
+- 500 → "Service Error" (502)
+- Unknown → "Unexpected Error" (502)
+
+**Tests**: 13 total (9 unit + 4 integration), all passing.

@@ -504,23 +504,99 @@ def top_mutual_funds():
 mf_cache = {}
 CACHE_DURATION = timedelta(hours=1)  # Cache for 1 hour
 
+
+def categorize_error(error_message: str):
+    """Map a raw API/requests error string to a friendly (title, message, status_code) tuple.
+
+    Used by routes that fetch external data so users see a clear, non-technical
+    error page instead of raw HTML/tracebacks.
+
+    Returns:
+        (title: str, message: str, status_code: int)
+    """
+    msg = (error_message or "").lower()
+
+    # 404 - Not Found
+    if "404" in msg or "not found" in msg:
+        return (
+            "Not Found",
+            "The requested resource could not be found. It may have been deleted or the code is incorrect.",
+            404,
+        )
+
+    # 502 - Bad Gateway / Service Temporarily Unavailable
+    if "502" in msg or "bad gateway" in msg:
+        return (
+            "Service Temporarily Unavailable",
+            "The data service is currently unreachable (Bad Gateway). This is usually temporary — please try again in a few minutes.",
+            502,
+        )
+
+    # 503 - Service Unavailable
+    if "503" in msg or "service unavailable" in msg:
+        return (
+            "Service Temporarily Unavailable",
+            "The data service is temporarily unavailable. Please try again shortly.",
+            503,
+        )
+
+    # 504 - Gateway Timeout
+    if "504" in msg or "gateway timeout" in msg:
+        return (
+            "Gateway Timeout",
+            "The data service took too long to respond (Gateway Timeout). Please try again later.",
+            504,
+        )
+
+    # Timeout / Read timed out
+    if "timeout" in msg or "timed out" in msg:
+        return (
+            "Request Timed Out",
+            "The request to the data service timed out. Please check your network connection and try again.",
+            504,
+        )
+
+    # Connection errors (ConnectionResetError, Max retries exceeded, etc.)
+    if "connection" in msg or "max retries exceeded" in msg or "connectionreseterror" in msg or "connectionrefused" in msg:
+        return (
+            "Connection Error",
+            "Could not connect to the data service. Please check your internet connection and try again.",
+            503,
+        )
+
+    # 500 - Internal Server Error
+    if "500" in msg:
+        return (
+            "Service Error",
+            "The data service encountered an internal error. We have been notified; please try again later.",
+            502,
+        )
+
+    # Fallback for any unrecognised error
+    return (
+        "Unexpected Error",
+        "Something went wrong while fetching the data. Please try again later.",
+        502,
+    )
+
+
 def get_mutual_fund_details_from_api(scheme_code):
     """Fetch mutual fund details from API"""
     BASE_URL = "https://api.mfapi.in/mf"
     url = f"{BASE_URL}/{scheme_code}"
-    
+
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("status") != "SUCCESS":
             raise Exception(f"API returned failure: {result}")
-        
+
         meta = result["meta"]
         nav_history = result["data"]
         latest_nav = nav_history[0] if nav_history else None
-        
+
         return {
             "scheme_code": meta.get("scheme_code"),
             "scheme_name": meta.get("scheme_name"),
@@ -579,23 +655,34 @@ def mutual_fund_detail(scheme_code):
         cached_data, cached_time = mf_cache[scheme_code]
         if now - cached_time < CACHE_DURATION:
             # Return cached data
-            return render_template('mutual_fund_detail.html', 
-                                 fund=cached_data, 
+            return render_template('mutual_fund_detail.html',
+                                 fund=cached_data,
                                  active='mutual_funds',
                                  from_cache=True)
-    
+
     # Fetch from API if not in cache or cache expired
     try:
         fund_details = get_mutual_fund_details_from_api(scheme_code)
         # Update cache
         mf_cache[scheme_code] = (fund_details, now)
-        
-        return render_template('mutual_fund_detail.html', 
-                             fund=fund_details, 
+
+        return render_template('mutual_fund_detail.html',
+                             fund=fund_details,
                              active='mutual_funds',
                              from_cache=False)
     except Exception as e:
-        return f"Error fetching mutual fund details: {str(e)}", 500
+        # Map the raw error to a user-friendly error page
+        error_text = str(e)
+        title, message, status_code = categorize_error(error_text)
+        return render_template(
+            'error.html',
+            error_title=title,
+            error_message=message,
+            error_details=error_text,
+            back_url='/mutual-funds',
+            back_label='← Back to Mutual Funds',
+            active='mutual_funds',
+        ), status_code
 
 @app.route("/stock/<symbol>")
 @login_required
