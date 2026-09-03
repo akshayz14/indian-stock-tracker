@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head">
     <h1>Daily Prices</h1>
-    <p>Historical OHLCV data across tracked stocks</p>
+    <p>Showing historical data across tracked stocks</p>
 </div>
 
 <form class="filters" method="get" action="/prices">
@@ -12,7 +12,7 @@
         <select name="stock_id" id="stock_id">
             <option value="">All Stocks</option>
             {% for stock in stocks %}
-            <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.symbol }}</option>
+            <option value="{{ stock.id }}" {% if stock.id == selected_stock_id %}selected{% endif %}>{{ stock.name }}</option>
             {% endfor %}
         </select>
     </div>
@@ -42,7 +42,7 @@
                 {% set p = price[0] %}
                 <tr>
                     <td class="mono">{{ p.date|ddmmmyyyy }}</td>
-                    <td><a class="link" href="/stocks/{{ price[1].id }}">{{ price[1].symbol }}</a></td>
+                    <td><a class="link" href="/stocks/{{ price[1].id }}">{{ price[1].name }}</a></td>
                     <td class="mono">₹{{ '%.2f'|format(p.open) if p.open is not none else '-' }}</td>
                     <td class="mono">₹{{ '%.2f'|format(p.high) if p.high is not none else '-' }}</td>
                     <td class="mono">₹{{ '%.2f'|format(p.low) if p.low is not none else '-' }}</td>

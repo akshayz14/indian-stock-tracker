@@ -2,18 +2,22 @@ from flask import Flask, render_template, request, jsonify
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from models import Asset, DailyPrice, Suggestion, MutualFundAsset, MutualFundSuggestion, get_session, get_mutual_fund_session, get_mutual_fund_engine
+from scoring2 import calculate_score
 import datetime
 from functools import wraps
 from nsetools import Nse  # Import NSE class
 import requests
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from stock_search_service import StockSearchService
 
-# In-memory cache for searched stock 60-day price history (TTL: 1 hour)
+# In-memory cache for searched stock 60-day price history (TTL: 15 minutes)
 search_history_cache = {}
-SEARCH_HISTORY_CACHE_DURATION = timedelta(hours=1)
+SEARCH_HISTORY_CACHE_DURATION = timedelta(minutes=15)
+
+# Freshness threshold for mutual fund filtering (2 years = 730 days)
+MF_FRESHNESS_DAYS = 730
 
 app = Flask(__name__)
 
@@ -52,6 +56,50 @@ def login_required(f):
 # Initialize mutual funds database on startup
 def init_mutual_funds_db():
     """Initialize the mutual funds database and create tables if they don't exist."""
+
+# Demo data for prototype - TODO: Replace with real data sources when available
+DEMO_DATA = {
+    "indices": [
+        {"name": "NIFTY 50", "value": 24847.30, "change": 124.50, "changePct": 0.50},
+        {"name": "NIFTY BANK", "value": 52341.20, "change": -89.30, "changePct": -0.17},
+        {"name": "NIFTY IT", "value": 36892.10, "change": 234.60, "changePct": 0.64},
+        {"name": "SENSEX", "value": 82156.80, "change": -45.20, "changePct": -0.05}
+    ],
+    "stocks": [
+        {"symbol": "RELIANCE", "name": "Reliance Industries", "price": 2847.35, "changePct": 1.50, "sector": "Energy", "recommendation": "Buy"},
+        {"symbol": "TCS", "name": "Tata Consultancy Services", "price": 3912.60, "changePct": -0.72, "sector": "IT", "recommendation": "Hold"},
+        {"symbol": "HDFCBANK", "name": "HDFC Bank", "price": 1724.80, "changePct": 1.11, "sector": "Banking", "recommendation": "Buy"},
+        {"symbol": "INFY", "name": "Infosys", "price": 1847.25, "changePct": -0.79, "sector": "IT", "recommendation": "Hold"},
+        {"symbol": "ICICIBANK", "name": "ICICI Bank", "price": 1312.45, "changePct": 1.73, "sector": "Banking", "recommendation": "Buy"},
+        {"symbol": "HINDUNILVR", "name": "Hindustan Unilever", "price": 2398.10, "changePct": -1.30, "sector": "FMCG", "recommendation": "Sell"}
+    ],
+    "sectors": [
+        {"name": "Banking", "pct": 1.24}, {"name": "IT", "pct": -0.91},
+        {"name": "FMCG", "pct": -0.48}, {"name": "Auto", "pct": 0.34},
+        {"name": "Energy", "pct": 1.50}, {"name": "Pharma", "pct": 1.12}
+    ],
+    "gainers": [
+        {"symbol": "BAJFINANCE", "name": "Bajaj Finance", "price": 7248.15, "changePct": 2.21},
+        {"symbol": "BHARTIARTL", "name": "Bharti Airtel", "price": 1623.45, "changePct": 2.02},
+        {"symbol": "SUNPHARMA", "name": "Sun Pharmaceutical", "price": 1682.45, "changePct": 1.75}
+    ],
+    "losers": [
+        {"symbol": "WIPRO", "name": "Wipro", "price": 547.80, "changePct": -1.47},
+        {"symbol": "TATAMOTORS", "name": "Tata Motors", "price": 985.40, "changePct": -1.52},
+        {"symbol": "BPCL", "name": "Bharat Petroleum", "price": 628.70, "changePct": -1.32}
+    ],
+    "watchlist": [
+        {"symbol": "RELIANCE", "name": "Reliance Industries", "sector": "Energy", "price": 2847.35, "changePct": 1.50},
+        {"symbol": "TCS", "name": "Tata Consultancy Services", "sector": "IT", "price": 3912.60, "changePct": -0.72},
+        {"symbol": "HDFCBANK", "name": "HDFC Bank", "sector": "Banking", "price": 1724.80, "changePct": 1.11},
+        {"symbol": "INFY", "name": "Infosys", "sector": "IT", "price": 1847.25, "changePct": -0.79}
+    ]
+}
+
+@app.context_processor
+def inject_demo_data():
+    return dict(demo_data=DEMO_DATA)
+
     try:
         engine = get_mutual_fund_engine()
         from models import Base
@@ -150,7 +198,7 @@ def get_price_history(asset_id, show_latest_days=60):
         result = []
         for price in price_history:
             result.append({
-                'date': price.date.isoformat() if price.date else None,
+                'date': price.date.strftime('%d-%m-%Y') if price.date else None,
                 'open': price.open,
                 'high': price.high,
                 'low': price.low,
@@ -221,9 +269,9 @@ def prices():
             # Default to stocks only (exclude mutual funds, which have NAV-only rows)
             query = query.filter(Asset.type != 'mutual_fund')
         if start_date:
-            query = query.filter(DailyPrice.date >= datetime.datetime.strptime(start_date, '%d-%m-%Y').date())
+            query = query.filter(DailyPrice.date >= datetime.strptime(start_date, '%Y-%m-%d').date())
         if end_date:
-            query = query.filter(DailyPrice.date <= datetime.datetime.strptime(end_date, '%d-%m-%Y').date())
+            query = query.filter(DailyPrice.date <= datetime.strptime(end_date, '%Y-%m-%d').date())
         
         # Get all assets for filter dropdown
         assets = session.query(Asset).order_by(Asset.symbol).all()
@@ -270,33 +318,39 @@ def suggestions():
         if asset_type:
             query = query.filter(Asset.type == asset_type)
         if start_date:
-            query = query.filter(Suggestion.date >= datetime.datetime.strptime(start_date, '%d-%m-%Y').date())
+            query = query.filter(Suggestion.date >= datetime.strptime(start_date, '%Y-%m-%d').date())
         if end_date:
-            query = query.filter(Suggestion.date <= datetime.datetime.strptime(end_date, '%d-%m-%Y').date())
+            query = query.filter(Suggestion.date <= datetime.strptime(end_date, '%Y-%m-%d').date())
         
         # Get all assets for filter dropdown
         assets = session.query(Asset).order_by(Asset.symbol).all()
-        
+
+        # Get available date range for filter form min/max attributes
+        min_date_result = session.query(Suggestion.date).order_by(Suggestion.date.asc()).first()
+        max_date_result = session.query(Suggestion.date).order_by(Suggestion.date.desc()).first()
+        min_available_date = min_date_result[0] if min_date_result else None
+        max_available_date = max_date_result[0] if max_date_result else None
+
         # Paginate
         page = request.args.get('page', 1, type=int)
         per_page = 20
         total = query.count()
         suggestions = query.order_by(Suggestion.date.desc()).offset((page - 1) * per_page).limit(per_page).all()
-        
+
         total_pages = max(1, (total + per_page - 1) // per_page)
-        # Compute score distribution for chart
-        score_labels = []
-        score_counts = []
-        if suggestions:
-            scores = [s[0].score for s in suggestions if s[0].score is not None]
-            if scores:
-                # Simple binning for chart
-                bins = [0, 20, 40, 60, 80, 100]
-                for i in range(len(bins)-1):
-                    count = sum(1 for s in scores if bins[i] <= s < bins[i+1])
-                    score_labels.append(f"{bins[i]}-{bins[i+1]}")
-                    score_counts.append(count)
-        
+
+        # Build helpful empty-state message explaining why no results were found
+        empty_message = None
+        if total == 0:
+            if min_available_date and max_available_date:
+                empty_message = (
+                    f"No suggestions found for the selected filters. "
+                    f"Available data ranges from {min_available_date.strftime('%d-%m-%Y')} "
+                    f"to {max_available_date.strftime('%d-%m-%Y')}."
+                )
+            else:
+                empty_message = "No suggestions found."
+
         return render_template('suggestions.html',
             suggestions=suggestions,
             stocks=assets,
@@ -309,8 +363,9 @@ def suggestions():
             start_date=start_date,
             end_date=end_date,
             asset_type=asset_type,
-            score_labels=score_labels,
-            score_counts=score_counts,
+            min_available_date=min_available_date,
+            max_available_date=max_available_date,
+            empty_message=empty_message,
             active='suggestions')
     finally:
         session.close()
@@ -349,7 +404,7 @@ def api_prices():
         prices = query.order_by(DailyPrice.date.desc()).limit(days).all()
         
         return jsonify([{
-            'date': price[0].date.isoformat(),
+            'date': price[0].date.strftime('%d-%m-%Y'),
             'asset_symbol': price[1].symbol,
             'open': price[0].open,
             'high': price[0].high,
@@ -360,6 +415,125 @@ def api_prices():
         } for price in prices])
     finally:
         session.close()
+
+
+@app.route('/api/suggestions')
+@login_required
+def api_suggestions():
+    """API endpoint to get suggestions for a date or date range.
+
+    Query parameters:
+        date: Single date YYYY-MM-DD (default: latest available)
+        start_date: Start date YYYY-MM-DD (inclusive)
+        end_date: End date YYYY-MM-DD (inclusive)
+
+    Returns suggestions for each date in the range, or latest if no range specified.
+    """
+    session = get_db_session()
+    try:
+        # Parse dates manually (Flask type= lambda has compatibility issues)
+        from datetime import datetime as _dt
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        single_date_str = request.args.get('date')
+        start_date = _dt.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else None
+        end_date = _dt.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else None
+        target_date = _dt.strptime(single_date_str, '%Y-%m-%d').date() if single_date_str else None
+
+        if start_date and end_date:
+            dates = []
+            current = start_date
+            while current <= end_date:
+                dates.append(current)
+                current += timedelta(days=1)
+            
+            results = []
+            for single_date in dates:
+                prices = (
+                    session.query(DailyPrice)
+                    .join(Asset, DailyPrice.asset_id == Asset.id)
+                    .filter(
+                        DailyPrice.date == single_date,
+                        Asset.type != 'mutual_fund',
+                        DailyPrice.is_holiday == False
+                    )
+                    .all()
+                )
+                
+                date_suggestions = []
+                for price in prices:
+                    if price.close is None:
+                        continue
+                    score = calculate_score(price)
+                    eff_open = price.open if price.open is not None else price.close
+                    momentum_pct = (price.close - eff_open) / eff_open if eff_open else 0
+                    hi = price.high if price.high is not None else price.close
+                    lo = price.low if price.low is not None else price.close
+                    day_range = hi - lo
+                    close_strength = (price.close - lo) / day_range if day_range else 0.5
+                    
+                    date_suggestions.append({
+                        'symbol': price.asset.symbol,
+                        'score': round(score, 4),
+                        'reasoning': f"Momentum: {momentum_pct:.2%} | Volume: {price.volume:,:,} | Close strength: {close_strength:.2%}"
+                    })
+                
+                results.append({
+                    'date': single_date.strftime('%d-%m-%Y'),
+                    'trading_day': len(prices) > 0,
+                    'suggestions': date_suggestions
+                })
+            
+            return jsonify({
+                'range': f"{start_date.strftime('%d-%m-%Y')} to {end_date.strftime('%d-%m-%Y')}",
+                'total_dates': len(results),
+                'results': results
+            })
+        # target_date already set from query param above
+        if not target_date:
+            target_date = (
+                session.query(DailyPrice.date)
+                .order_by(DailyPrice.date.desc())
+                .first()[0]
+            )
+        
+        prices = (
+            session.query(DailyPrice)
+            .join(Asset, DailyPrice.asset_id == Asset.id)
+            .filter(
+                DailyPrice.date == target_date,
+                Asset.type != 'mutual_fund',
+                DailyPrice.is_holiday == False
+            )
+            .all()
+        )
+        
+        results = []
+        for price in prices:
+            if price.close is None:
+                continue
+            score = calculate_score(price)
+            eff_open = price.open if price.open is not None else price.close
+            momentum_pct = (price.close - eff_open) / eff_open if eff_open else 0
+            hi = price.high if price.high is not None else price.close
+            lo = price.low if price.low is not None else price.close
+            day_range = hi - lo
+            close_strength = (price.close - lo) / day_range if day_range else 0.5
+            
+            results.append({
+                'symbol': price.asset.symbol,
+                'score': round(score, 4),
+                'reasoning': f"Momentum: {momentum_pct:.2%} | Volume: {price.volume:,:,} | Close strength: {close_strength:.2%}"
+            })
+        
+        return jsonify({
+            'date': target_date.strftime('%d-%m-%Y'),
+            'suggestions': results,
+            'total_suggestions': len(results)
+        })
+    finally:
+        session.close()
+
 
 @app.route('/gainers-losers')
 @login_required
@@ -411,9 +585,13 @@ def gainers_losers():
             'id': symbol_to_id.get(stock['symbol'])
         })
     
+    # Date the gainers/losers data is for (live snapshot from NSE)
+    today_str = datetime.now().strftime('%d-%m-%Y')
+
     return render_template('gainers_losers.html',
         gainers=gainers_data,
         losers=losers_data,
+        today_str=today_str,
         active='gainers_losers')
 
 @app.route('/search')
@@ -451,6 +629,13 @@ def mutual_funds():
         category_underscore = category.replace('-', '_')
         query = query.filter(MutualFundAsset.type == category_underscore)
         
+        # Filter out stale funds (latest NAV date older than 2 years)
+        freshness_cutoff = date.today() - timedelta(days=MF_FRESHNESS_DAYS)
+        query = query.filter(
+            MutualFundAsset.latest_nav_date.isnot(None),
+            MutualFundAsset.latest_nav_date >= freshness_cutoff
+        )
+        
         # Get top 50 by score
         top = query.order_by(MutualFundSuggestion.score.desc()).limit(50).all()
         
@@ -467,19 +652,21 @@ def mutual_funds():
 @app.route('/top-mutual-funds')
 @login_required
 def top_mutual_funds():
-    """Display top 50 mutual funds by score from stocks.db."""
-    session = get_session()
+    """Display top 50 mutual funds by score from mutual_funds.db."""
+    session = get_mutual_fund_session()
     try:
-        # Get top 50 mutual funds by score from stocks.db
-        # Mutual funds are stored in the assets table with type='mutual_fund'
+        # Filter out stale funds - if they haven't had NAV updates in the last 2 years, they're not relevant
+        freshness_cutoff = date.today() - timedelta(days=MF_FRESHNESS_DAYS)
+        
+        # Get top 50 mutual funds by score from mutual_funds.db
         top = (
             session.query(
-                Asset,
-                Suggestion
+                MutualFundAsset,
+                MutualFundSuggestion
             )
-            .join(Suggestion, Suggestion.asset_id == Asset.id)
-            .filter(Asset.type == 'mutual_fund')
-            .order_by(Suggestion.score.desc())
+            .join(MutualFundSuggestion, MutualFundSuggestion.asset_id == MutualFundAsset.id)
+            .filter(MutualFundAsset.latest_nav_date >= freshness_cutoff)  # Filter by NAV freshness
+            .order_by(MutualFundSuggestion.score.desc())
             .limit(50)
             .all()
         )
@@ -500,23 +687,99 @@ def top_mutual_funds():
 mf_cache = {}
 CACHE_DURATION = timedelta(hours=1)  # Cache for 1 hour
 
+
+def categorize_error(error_message: str):
+    """Map a raw API/requests error string to a friendly (title, message, status_code) tuple.
+
+    Used by routes that fetch external data so users see a clear, non-technical
+    error page instead of raw HTML/tracebacks.
+
+    Returns:
+        (title: str, message: str, status_code: int)
+    """
+    msg = (error_message or "").lower()
+
+    # 404 - Not Found
+    if "404" in msg or "not found" in msg:
+        return (
+            "Not Found",
+            "The requested resource could not be found. It may have been deleted or the code is incorrect.",
+            404,
+        )
+
+    # 502 - Bad Gateway / Service Temporarily Unavailable
+    if "502" in msg or "bad gateway" in msg:
+        return (
+            "Service Temporarily Unavailable",
+            "The data service is currently unreachable (Bad Gateway). This is usually temporary — please try again in a few minutes.",
+            502,
+        )
+
+    # 503 - Service Unavailable
+    if "503" in msg or "service unavailable" in msg:
+        return (
+            "Service Temporarily Unavailable",
+            "The data service is temporarily unavailable. Please try again shortly.",
+            503,
+        )
+
+    # 504 - Gateway Timeout
+    if "504" in msg or "gateway timeout" in msg:
+        return (
+            "Gateway Timeout",
+            "The data service took too long to respond (Gateway Timeout). Please try again later.",
+            504,
+        )
+
+    # Timeout / Read timed out
+    if "timeout" in msg or "timed out" in msg:
+        return (
+            "Request Timed Out",
+            "The request to the data service timed out. Please check your network connection and try again.",
+            504,
+        )
+
+    # Connection errors (ConnectionResetError, Max retries exceeded, etc.)
+    if "connection" in msg or "max retries exceeded" in msg or "connectionreseterror" in msg or "connectionrefused" in msg:
+        return (
+            "Connection Error",
+            "Could not connect to the data service. Please check your internet connection and try again.",
+            503,
+        )
+
+    # 500 - Internal Server Error
+    if "500" in msg:
+        return (
+            "Service Error",
+            "The data service encountered an internal error. We have been notified; please try again later.",
+            502,
+        )
+
+    # Fallback for any unrecognised error
+    return (
+        "Unexpected Error",
+        "Something went wrong while fetching the data. Please try again later.",
+        502,
+    )
+
+
 def get_mutual_fund_details_from_api(scheme_code):
     """Fetch mutual fund details from API"""
     BASE_URL = "https://api.mfapi.in/mf"
     url = f"{BASE_URL}/{scheme_code}"
-    
+
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         result = response.json()
-        
+
         if result.get("status") != "SUCCESS":
             raise Exception(f"API returned failure: {result}")
-        
+
         meta = result["meta"]
         nav_history = result["data"]
         latest_nav = nav_history[0] if nav_history else None
-        
+
         return {
             "scheme_code": meta.get("scheme_code"),
             "scheme_name": meta.get("scheme_name"),
@@ -575,23 +838,34 @@ def mutual_fund_detail(scheme_code):
         cached_data, cached_time = mf_cache[scheme_code]
         if now - cached_time < CACHE_DURATION:
             # Return cached data
-            return render_template('mutual_fund_detail.html', 
-                                 fund=cached_data, 
+            return render_template('mutual_fund_detail.html',
+                                 fund=cached_data,
                                  active='mutual_funds',
                                  from_cache=True)
-    
+
     # Fetch from API if not in cache or cache expired
     try:
         fund_details = get_mutual_fund_details_from_api(scheme_code)
         # Update cache
         mf_cache[scheme_code] = (fund_details, now)
-        
-        return render_template('mutual_fund_detail.html', 
-                             fund=fund_details, 
+
+        return render_template('mutual_fund_detail.html',
+                             fund=fund_details,
                              active='mutual_funds',
                              from_cache=False)
     except Exception as e:
-        return f"Error fetching mutual fund details: {str(e)}", 500
+        # Map the raw error to a user-friendly error page
+        error_text = str(e)
+        title, message, status_code = categorize_error(error_text)
+        return render_template(
+            'error.html',
+            error_title=title,
+            error_message=message,
+            error_details=error_text,
+            back_url='/mutual-funds',
+            back_label='← Back to Mutual Funds',
+            active='mutual_funds',
+        ), status_code
 
 @app.route("/stock/<symbol>")
 @login_required
@@ -600,7 +874,7 @@ def stock_by_symbol(symbol):
     try:
         cache_symbol = symbol.upper().strip()
         
-        # Check cache first (freshness: 1 hour)
+        # Check cache first (freshness: 15 minutes)
         now = datetime.now()
         cached_price_history = None
         if cache_symbol in search_history_cache:

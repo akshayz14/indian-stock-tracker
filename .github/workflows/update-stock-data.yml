@@ -2,7 +2,7 @@ name: Update Stock Data
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '47 1 * * *'   # 01:47 UTC = 07:17 IST (matches previous schedule; pre-market data fetch)
   workflow_dispatch:
 
 permissions:

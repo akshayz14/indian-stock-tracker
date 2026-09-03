@@ -1,9 +1,56 @@
 {% extends "base.html" %}
+{% block extra_scripts %}
+<script>
+// Smart tooltip positioning: prevent overflow at page edges
+(function() {
+    const TOOLTIP_WIDTH = 320; // matches CSS width: 320px
+    const EDGE_MARGIN = 16;    // minimum margin from viewport edge
+    
+    function positionTooltip(btn) {
+        const rect = btn.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        
+        // Calculate space on each side of the button
+        const spaceRight = viewportWidth - rect.right;
+        const spaceLeft = rect.left;
+        
+        // Reset any previous position attribute
+        btn.removeAttribute('data-tooltip-position');
+        
+        // If centered tooltip would overflow on the right, anchor it to the right of the button
+        if (spaceRight < TOOLTIP_WIDTH / 2) {
+            btn.setAttribute('data-tooltip-position', 'top-left');
+        }
+        // If centered tooltip would overflow on the left, anchor it to the left of the button
+        else if (spaceLeft < TOOLTIP_WIDTH / 2) {
+            btn.setAttribute('data-tooltip-position', 'top-right');
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const tooltipBtns = document.querySelectorAll('.tooltip-btn');
+        
+        tooltipBtns.forEach(function(btn) {
+            btn.addEventListener('mouseenter', function() {
+                positionTooltip(this);
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}
+
 {% block title %}Suggestions{% endblock %}
 {% block content %}
 <div class="page-head">
     <h1>Suggestions</h1>
     <p>Top-scoring stocks by momentum + volume strategy</p>
+    {% if suggestions %}
+    <p class="meta">Data as of {{ suggestions[0][0].date|ddmmmyyyy }}</p>
+    {% endif %}
+    {% if min_available_date and max_available_date %}
+    <p class="meta-date-range">Available data: {{ min_available_date.strftime('%d-%m-%Y') }} to {{ max_available_date.strftime('%d-%m-%Y') }}</p>
+    {% endif %}
 </div>
 
 <form class="filters" method="get" action="/suggestions">
@@ -18,15 +65,21 @@
     </div>
     <div class="field">
         <label for="start_date">From</label>
-        <input type="date" name="start_date" id="start_date" value="{{ start_date|default('') }}">
+        <input type="date" name="start_date" id="start_date" value="{{ start_date|default('') }}"
+               {% if min_available_date %}min="{{ min_available_date.strftime('%Y-%m-%d') }}"{% endif %}
+               {% if max_available_date %}max="{{ max_available_date.strftime('%Y-%m-%d') }}"{% endif %}>
     </div>
     <div class="field">
         <label for="end_date">To</label>
-        <input type="date" name="end_date" id="end_date" value="{{ end_date|default('') }}">
+        <input type="date" name="end_date" id="end_date" value="{{ end_date|default('') }}"
+               {% if min_available_date %}min="{{ min_available_date.strftime('%Y-%m-%d') }}"{% endif %}
+               {% if max_available_date %}max="{{ max_available_date.strftime('%Y-%m-%d') }}"{% endif %}>
     </div>
     <button class="btn" type="submit">Apply Filters</button>
     <a class="btn secondary" href="/suggestions">Reset</a>
-    <button class="btn secondary" onmouseenter="showHint()" onmouseleave="hideHint()">Hint</button>
+    <button class="btn secondary tooltip-btn" data-tooltip="This page shows top-scoring stocks based on momentum and volume strategy. Use filters to narrow down results by stock and date range. Scores range from 0 to 1, with higher scores indicating stronger momentum and volume characteristics.">
+Hint
+</button>
 </form>
 
 <div class="card">
@@ -45,53 +98,31 @@
                     <td>{{ suggestion[0].reasoning }}</td>
                 </tr>
                 {% else %}
+                {% if empty_message %}
+                <tr><td colspan="5" class="empty">{{ empty_message }}</td></tr>
+                {% else %}
                 <tr><td colspan="5" class="empty">No suggestions found.</td></tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
 
-<!-- Score Distribution Chart -->
-<div class="card" style="margin-top:32px;">
-    <h2 style="margin-top:0;font-size:18px;">Score Distribution</h3>
-    <div class="chart-container" style="position: relative; height: 250px;">
-        <canvas id="scoreChart"></canvas>
-    </div>
+<!-- Pagination -->
+<div class="pagination">
+    {% if has_prev %}
+    <a href="?page={{ page - 1 }}{% if asset_id %}&asset_id={{ asset_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">← Previous</a>
+    {% else %}
+    <span class="disabled">← Previous</span>
+    {% endif %}
+    <span>Page {{ page }} of {{ total_pages }}</span>
+    {% if has_next %}
+    <a href="?page={{ page + 1 }}{% if asset_id %}&asset_id={{ asset_id }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">Next →</a>
+    {% else %}
+    <span class="disabled">Next →</span>
+    {% endif %}
 </div>
 
-<script>
-// Score Distribution Chart
-const scoreChartCtx = document.getElementById('scoreChart').getContext('2d');
-const scoreChartData = {
-    labels: {{ score_labels|tojson|safe }},
-    datasets: [{
-        label: 'Score Frequency',
-        data: {{ score_counts|tojson|safe }},
-        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-        borderColor: 'rgb(59, 130, 246)',
-        borderWidth: 1
-    }]
-};
 
-new Chart(scoreChartCtx, {
-    type: 'bar',
-    data: scoreChartData,
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { 
-                grid: { display: false },
-                ticks: { maxTicksLimit: 8 }
-            },
-            y: {
-                grid: { color: 'rgba(0,0,0,0.05)' },
-                ticks: { callback: function(value) { return value; } }
-            }
-        }
-    }
-});
-</script>
 {% endblock %}

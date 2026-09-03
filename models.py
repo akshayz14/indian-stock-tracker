@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, create_engine, Boolean
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 Base = declarative_base()
@@ -52,6 +52,7 @@ class DailyPrice(Base):
     close = Column(Float)
     adj_close = Column(Float)
     volume = Column(Float)
+    is_holiday = Column(Boolean, default=False)
     
     asset = relationship('Asset', back_populates='prices')
 
@@ -72,6 +73,7 @@ class MutualFundAsset(Base):
     scheme_name = Column(String)
     fund_house = Column(String)
     type = Column(String)  # Will store category like 'large_cap', etc.
+    latest_nav_date = Column(Date)  # Date of latest NAV for filtering by freshness
     
     suggestions = relationship('MutualFundSuggestion', back_populates='asset')
 
@@ -89,52 +91,43 @@ def get_engine(db_path='sqlite:///stocks.db'):
     return create_engine(db_path, echo=False)
 
 def _add_missing_columns(engine):
-    """Add any columns from the Asset model that are missing from the assets table."""
+    """Add any columns from the Asset/DailyPrice models that are missing from the tables."""
     from sqlalchemy import inspect, text
 
-    # Get existing column names from the assets table
-    inspector = inspect(engine)
-    existing_cols = set(c['name'] for c in inspector.get_columns('assets'))
-
-    # Define all columns from the Asset model (those NOT already present)
-    # and their SQL types, matching the model definitions
-    model_columns = {
-        'industry': 'TEXT',
-        'market_cap': 'REAL',
-        'pe_ratio': 'REAL',
-        'forward_pe': 'REAL',
-        'eps': 'REAL',
-        'book_value': 'REAL',
-        'price_to_book': 'REAL',
-        'dividend_yield': 'REAL',
-        'dividend_rate': 'REAL',
-        'beta': 'REAL',
-        'profit_margin': 'REAL',
-        'operating_margin': 'REAL',
-        'return_on_equity': 'REAL',
-        'return_on_assets': 'REAL',
-        'total_revenue': 'REAL',
-        'total_debt': 'REAL',
-        'total_cash': 'REAL',
-        'debt_to_equity': 'REAL',
-        'shares_outstanding': 'REAL',
-        'float_shares': 'REAL',
-        'website': 'TEXT',
-        'country': 'TEXT',
-        'currency': 'TEXT',
-        'last_updated': 'TEXT',
+    # Asset model columns
+    asset_existing = set(c['name'] for c in inspect(engine).get_columns('assets')) \
+        if inspect(engine).has_table('assets') else set()
+    asset_columns = {
+        'industry': 'TEXT', 'market_cap': 'REAL', 'pe_ratio': 'REAL',
+        'forward_pe': 'REAL', 'eps': 'REAL', 'book_value': 'REAL',
+        'price_to_book': 'REAL', 'dividend_yield': 'REAL', 'dividend_rate': 'REAL',
+        'beta': 'REAL', 'profit_margin': 'REAL', 'operating_margin': 'REAL',
+        'return_on_equity': 'REAL', 'return_on_assets': 'REAL',
+        'total_revenue': 'REAL', 'total_debt': 'REAL', 'total_cash': 'REAL',
+        'debt_to_equity': 'REAL', 'shares_outstanding': 'REAL',
+        'float_shares': 'REAL', 'website': 'TEXT', 'country': 'TEXT',
+        'currency': 'TEXT', 'last_updated': 'TEXT',
     }
 
-    # Build ALTER TABLE statements for any missing columns
+    # DailyPrice model columns
+    dp_existing = set(c['name'] for c in inspect(engine).get_columns('daily_prices')) \
+        if inspect(engine).has_table('daily_prices') else set()
+    dp_columns = {'is_holiday': 'BOOLEAN DEFAULT 0'}
+
     with engine.begin() as conn:
-        for col_name, col_type in model_columns.items():
-            if col_name not in existing_cols:
+        for col_name, col_type in asset_columns.items():
+            if col_name not in asset_existing:
                 conn.execute(text(f'ALTER TABLE assets ADD COLUMN "{col_name}" {col_type}'))
+        for col_name, col_type in dp_columns.items():
+            if col_name not in dp_existing:
+                conn.execute(text(f'ALTER TABLE daily_prices ADD COLUMN "{col_name}" {col_type}'))
 
 def init_db():
     engine = get_engine()
-    _add_missing_columns(engine)
+    # Create all tables first (handles initial schema creation)
     Base.metadata.create_all(engine)
+    # Then add any missing columns from model updates
+    _add_missing_columns(engine)
     return engine
 
 def get_session():
@@ -144,6 +137,25 @@ def get_session():
 
 def get_mutual_fund_engine(db_path='sqlite:///mutual_funds.db'):
     return create_engine(db_path, echo=False)
+
+def _add_missing_mutual_fund_columns(engine):
+    """Add any columns from the MutualFundAsset model that are missing from the table."""
+    from sqlalchemy import inspect, text
+    
+    inspector = inspect(engine)
+    if not inspector.has_table('mutual_fund_assets'):
+        return
+    
+    existing_cols = set(c['name'] for c in inspector.get_columns('mutual_fund_assets'))
+    
+    model_columns = {
+        'latest_nav_date': 'DATE',
+    }
+    
+    with engine.begin() as conn:
+        for col_name, col_type in model_columns.items():
+            if col_name not in existing_cols:
+                conn.execute(text(f'ALTER TABLE mutual_fund_assets ADD COLUMN "{col_name}" {col_type}'))
 
 def get_mutual_fund_session():
     engine = get_mutual_fund_engine()

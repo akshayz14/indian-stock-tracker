@@ -1,22 +1,14 @@
 import datetime
 from sqlalchemy.orm import Session
 from models import Asset, DailyPrice, get_session
-from data_sources import fetch_with_fallback, resolve_name, DEFAULT_SOURCES, MutualFundSource
+from data_sources import fetch_with_fallback, resolve_name, DEFAULT_SOURCES
 
 # Default list of symbols to track
 # Each entry is a tuple: (symbol, type)
-# 50 valid mfapi.in scheme codes (mutual funds) + Nifty 50 equities fetched from NSE
+# Nifty 50 equities fetched from NSE
 import requests
 import io
 import pandas as pd
-
-MF_SCHEME_CODES = [
-    119000, 119001, 119002, 119003, 119004, 119005, 119006, 119007, 119008, 119009,
-    119010, 119011, 119012, 119013, 119014, 119015, 119016, 119017, 119018, 119019,
-    119020, 119021, 119022, 119023, 119024, 119025, 119026, 119027, 119028, 119029,
-    119030, 119031, 119032, 119033, 119034, 119035, 119036, 119037, 119038, 119039,
-    119040, 119041, 119042, 119043, 119044, 119045, 119046, 119047, 119048, 119049,
-]
 
 def get_nifty50_symbols():
     """
@@ -48,10 +40,15 @@ def get_nifty50_symbols():
             print("NSESource not available either.")
             return []
 
+def is_trading_day(date: datetime.date) -> bool:
+    """Check if a date is a weekday (Monday-Friday) - trading days only."""
+    # Monday=0, Tuesday=1, ..., Saturday=5, Sunday=6
+    return date.weekday() < 5
+
 def get_default_symbols():
     """
     Get the complete list of default symbols to track.
-    Combines Nifty 50 equities with mutual fund scheme codes.
+    Returns Nifty 50 equities only (mutual funds tracked separately in mutual_funds.db).
     """
     # Get Nifty 50 symbols
     nifty50_symbols = get_nifty50_symbols()
@@ -59,11 +56,7 @@ def get_default_symbols():
     # Create equity symbols from Nifty 50 (append .NS suffix for yfinance)
     equity_symbols = [(f"{symbol}.NS", 'equity') for symbol in nifty50_symbols]
     
-    # Add mutual fund symbols
-    mutual_fund_symbols = [(str(code), 'mutual_fund') for code in MF_SCHEME_CODES]
-    
-    # Combine and return
-    return equity_symbols + mutual_fund_symbols
+    return equity_symbols
 
 # Get the default symbols
 DEFAULT_SYMBOLS = get_default_symbols()
@@ -79,49 +72,16 @@ def get_or_create_asset(session: Session, symbol: str, name: str = None, exchang
 
 def fetch_and_store(symbols, sources=None):
     """
-    Fetch daily price data for given symbols and store in SQLite DB.
+        Fetch daily price data for given symbols and store in SQLite DB.
     Symbols should be tuples: (symbol, type).
-    For mutual funds we store the recent NAV history (not just the latest
-    NAV) so that scoring has prior NAVs to compute returns against.
     For equities we store recent price history (last 60 days) for charting
     and analysis purposes.
     """
     session = get_session()
     for sym, sym_type in symbols:
-        # Determine source list
-        if sym_type == 'mutual_fund':
-            srcs = [MutualFundSource()]
-        else:
-            srcs = DEFAULT_SOURCES
-
+        # Determine source list - only equities are tracked via DEFAULT_SOURCES
+        srcs = DEFAULT_SOURCES
         try:
-            if sym_type == 'mutual_fund':
-                # Store recent NAV history for proper scoring
-                history = MutualFundSource().fetch_history(sym, limit=60)
-                if not history:
-                    print(f'No data for {sym} from any source')
-                    continue
-                name = resolve_name(sym, srcs)
-                asset = get_or_create_asset(session, sym, name=name, asset_type=sym_type)
-                stored = 0
-                for ohlcv in history:
-                    exists = session.query(DailyPrice).filter_by(asset_id=asset.id, date=ohlcv.date).first()
-                    if exists:
-                        continue
-                    price = DailyPrice(
-                        asset_id=asset.id,
-                        date=ohlcv.date,
-                        open=ohlcv.open, high=ohlcv.high, low=ohlcv.low,
-                        close=ohlcv.close, adj_close=ohlcv.adj_close,
-                        volume=ohlcv.volume
-                    )
-                    session.add(price)
-                    stored += 1
-                session.commit()
-                if stored:
-                    print(f'Stored {stored} NAV records for {sym}')
-                continue
-
             # For equities, fetch and store recent historical price data (last 60 days)
             # Use YFinanceSource directly to get history, as it's most reliable for historical data
             from data_sources import YFinanceSource
@@ -157,7 +117,8 @@ def fetch_and_store(symbols, sources=None):
                     low=ohlcv.low,
                     close=ohlcv.close,
                     adj_close=ohlcv.adj_close,
-                    volume=ohlcv.volume
+                    volume=ohlcv.volume,
+                    is_holiday=False
                 )
                 session.add(price)
                 session.commit()
@@ -179,7 +140,8 @@ def fetch_and_store(symbols, sources=None):
                         low=ohlcv_record.low,
                         close=ohlcv_record.close,
                         adj_close=ohlcv_record.adj_close,
-                        volume=ohlcv_record.volume
+                        volume=ohlcv_record.volume,
+                        is_holiday=False
                     )
                     session.add(price)
                     stored += 1
@@ -188,7 +150,74 @@ def fetch_and_store(symbols, sources=None):
                     print(f'Stored {stored} historical price records for {sym}')
         except Exception as e:
             print(f'Error fetching {sym}: {e}')
-    session.close()
+        session.close()
+
+def detect_and_store_holidays(symbols, days_back=60):
+    """
+    Detect weekdays with no trading data (holidays) and insert placeholder rows.
+
+    For each weekday in the last ``days_back`` days where no price data exists
+    for ANY tracked stock, a placeholder DailyPrice row with ``is_holiday=True``
+    is inserted for every tracked stock. This keeps the date range continuous
+    so the UI calendar and API queries can distinguish real trading days from
+    holidays/weekends.
+    """
+    session = get_session()
+    try:
+        today = datetime.date.today()
+        cutoff = today - datetime.timedelta(days=days_back)
+
+        # Gather all weekday dates in the range
+        total_days = (today - cutoff).days + 1
+        weekday_dates = [
+            cutoff + datetime.timedelta(days=i)
+            for i in range(total_days)
+            if is_trading_day(cutoff + datetime.timedelta(days=i))
+        ]
+
+        # Find which weekday dates already have data for any stock
+        existing_dates = set(
+            d for (d,) in session.query(DailyPrice.date)
+            .filter(DailyPrice.date >= cutoff, DailyPrice.date <= today)
+            .distinct()
+            .all()
+        )
+
+        missing_trading_days = [d for d in weekday_dates if d not in existing_dates]
+        if not missing_trading_days:
+            print("No missing trading days detected — holidays already populated.")
+            return
+
+        # Insert holiday placeholders for all tracked stocks
+        for sym, sym_type in symbols:
+            asset = session.query(Asset).filter_by(symbol=sym).first()
+            if asset is None:
+                asset = get_or_create_asset(session, sym, asset_type=sym_type)
+            existing = (
+                session.query(DailyPrice)
+                .filter_by(asset_id=asset.id)
+                .filter(DailyPrice.date.in_(missing_trading_days))
+                .all()
+            )
+            existing_dates_for_asset = {p.date for p in existing}
+            for d in missing_trading_days:
+                if d in existing_dates_for_asset:
+                    continue
+                session.add(DailyPrice(
+                    asset_id=asset.id,
+                    date=d,
+                    open=None,
+                    high=None,
+                    low=None,
+                    close=None,
+                    adj_close=None,
+                    volume=0.0,
+                    is_holiday=True
+                ))
+        session.commit()
+        print(f"Inserted holiday placeholders for {len(missing_trading_days)} missing trading days.")
+    finally:
+        session.close()
 
 if __name__ == '__main__':
     fetch_and_store(DEFAULT_SYMBOLS)

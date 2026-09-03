@@ -24,7 +24,7 @@ A lightweight, automated system for Indian investors to fetch daily market data,
 2. **Mutual Fund Data**: Fetch NAV history from mfapi.in for Direct Growth funds
 3. **Scoring Engine**: Composite score = momentum × 0.7 + volume_factor × 0.3 (equities); CAGR returns with volatility adjustment (mutual funds)
 4. **Persistence**: SQLite database via SQLAlchemy
-5. **CLI**: `python cli.py [--date YYYY-MM-DD]` for top suggestions
+5. **CLI**: `python cli.py [--date dd-mm-yyyy]` for top suggestions
 6. **Automation**: `run_daily.py` for cron scheduling (equities); `mutual_fund_db.py` for mutual fund processing
 7. **Web UI**: Flask UI at http://localhost:8080 with `/mutual-funds` route for category-filtered fund listings
 8. **Export**: CSV exports for top mutual funds by category (Large Cap, Mid Cap, Small Cap, Debt)

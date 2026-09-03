@@ -7,13 +7,15 @@ supports:
 
   * NSE India (``nsepy``)        — primary source (official exchange feed)
   * Yahoo Finance (``yfinance``) — secondary / fallback source
-  * Mutual Funds (``mfapi.in``)   — third source for mutual fund NAV data
+
+Mutual funds are tracked separately via the dedicated ``mutual_funds.db``
+database and the ``mutual_fund_db.py`` processing pipeline.
 
 Relying on a single provider is fragile: rate limits, outages, or changes to a
 provider's API can silently drop stocks from the database. By abstracting each
 provider behind a common interface and falling back from one to the next, the
 fetcher becomes far more resilient — if NSE is unavailable we can still
-pull the same data from Yahoo Finance, and mutual funds from mfapi.in.
+pull the same data from Yahoo Finance.
 """
 
 from __future__ import annotations
@@ -115,9 +117,6 @@ class YFinanceSource(DataSource):
             # Convert to OHLCV objects, most recent first
             records = []
             for idx, row in hist.iterrows():
-                if len(records) >= limit:
-                    break
-                    
                 date = idx.date() if hasattr(idx, 'date') else idx
                 records.append(OHLCV(
                     date=date,
@@ -129,7 +128,8 @@ class YFinanceSource(DataSource):
                     volume=float(row['Volume'])
                 ))
             
-            return records
+            # Return the most recent 'limit' records
+            return records[-limit:]
         except Exception:
             return []
 
@@ -291,15 +291,16 @@ class MutualFundSource(DataSource):
                     open=nav, high=nav, low=nav, close=nav,
                     adj_close=nav, volume=0.0
                 ))
-            return records
+            # Return the most recent 'limit' records
+            return records[-limit:]
         except Exception:
             return []
 
 
 # Ordered list of sources tried by the fetcher. NSE is first (official
-# exchange feed); yfinance is the fallback for resilience; mutual funds
-# are a separate source for NAV data.
-DEFAULT_SOURCES: List[DataSource] = [NSESource(), YFinanceSource(), MutualFundSource()]
+# exchange feed); yfinance is the fallback for resilience.
+# Mutual funds are tracked separately via mutual_funds.db and mutual_fund_db.py.
+DEFAULT_SOURCES: List[DataSource] = [NSESource(), YFinanceSource()]
 
 
 def fetch_with_fallback(symbol: str, sources: Optional[List[DataSource]] = None) -> Optional[OHLCV]:

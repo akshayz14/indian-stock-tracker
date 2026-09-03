@@ -1,133 +1,122 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-
-<div class="page-head">
-    <h1>Dashboard</h1>
-    <p>Overview of your Indian stock tracking database</p>
-</div>
-
+<div class="page-head"><h1>Dashboard</h1><p>Market overview at a glance with real-time insights</p></div>
 <div class="stat-grid">
-    <div class="stat">
-        <div class="label">Tracked Stocks</div>
-        <div class="value brand">{{ stats.total_stocks }}</div>
-    </div>
-    <div class="stat">
-        <div class="label">Price Records</div>
-        <div class="value">{{ stats.total_prices }}</div>
-    </div>
-    <div class="stat">
-        <div class="label">Suggestions</div>
-        <div class="value">{{ stats.total_suggestions }}</div>
-    </div>
-    <div class="stat">
-        <div class="label">Latest Data</div>
-        <div class="value" style="font-size:20px;">{{ stats.latest_date|ddmmmyyyy|default('No data yet') }}</div>
-    </div>
+<div class="stat"><div class="label">Tracked Stocks</div><div class="value brand">{{ demo_data.stocks|length }}</div></div>
+<div class="stat"><div class="label">NIFTY 50</div><div class="value mono">{{ demo_data.indices[0].value }}</div></div>
+<div class="stat"><div class="label">Buy Signals</div><div class="value mono">{{ demo_data.stocks|selectattr("recommendation","equalto","Buy")|list|length }}</div></div>
+<div class="stat"><div class="label">Top Sector</div><div class="value" style="font-size:20px;">{% set top_sector = demo_data.sectors|sort(attribute='pct', reverse=True)|first %}{{ top_sector.name }}</div></div>
+</div>
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:24px;">
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+<h2 style="margin-top:0;font-size:18px;">Market Performance</h2>
+<div class="timeframe-group">
+<button class="btn btn-secondary active">1D</button><button class="btn btn-secondary">1W</button><button class="btn btn-secondary">1M</button><button class="btn btn-secondary">3M</button><button class="btn btn-secondary">1Y</button>
+</div>
+</div>
+<div style="position:relative;height:300px;"><canvas id="priceChart"></canvas></div>
+</div>
+<div class="card">
+<h2 style="margin-top:0;font-size:18px;">Watch List</h2>
+<div style="display:flex;flex-direction:column;gap:12px;">
+{% for s in demo_data.watchlist %}
+<a href="/stocks/{{s.symbol}}" style="display:block;padding:8px;border-radius:8px;border:1px solid var(--border);text-decoration:none;">
+<div style="display:flex;justify-content:space-between;align-items:center;">
+<div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">{{s.sector}}</span></div>
+<span class="change-chip {% if s.changePct>=0 %}up{% else %}down{% endif %}">{{s.changePct|round(2)}}%</span>
+</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin-top:4px;">{{s.price|round(2)}}</div>
+</a>
+{% endfor %}
+</div>
+</div>
+</div>
+<div style="margin-top:32px;">
+<h2 style="font-size:18px;margin-bottom:16px;">Top Stocks by Index</h2>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+<h2 style="margin-top:0;font-size:18px;">NIFTY 50</h2>
+<span class="change-chip up">{{demo_data.indices[0].changePct|round(2)}}%</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+{% for s in demo_data.stocks[:3] %}
+<div class="stock-card" style="padding:12px;">
+<div style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</div>
+<div style="font-size:10px;color:var(--muted-foreground);">{{s.sector}}</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin:6px 0;">{{s.price|round(2)}}</div>
+<span class="change-chip {% if s.changePct>=0 %}up{% else %}down{% endif %}">{{s.changePct|round(2)}}%</span>
+</div>
+{% endfor %}
+</div>
+</div>
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+<h2 style="margin-top:0;font-size:18px;">NIFTY BANK</h2>
+<span class="change-chip {% if demo_data.indices[1].changePct>=0 %}up{% else %}down{% endif %}">{{demo_data.indices[1].changePct|round(2)}}%</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+{% for s in demo_data.stocks[3:6] %}
+<div class="stock-card" style="padding:12px;">
+<div style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</div>
+<div style="font-size:10px;color:var(--muted-foreground);">{{s.sector}}</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin:6px 0;">{{s.price|round(2)}}</div>
+<span class="change-chip {% if s.changePct>=0 %}up{% else %}down{% endif %}">{{s.changePct|round(2)}}%</span>
+</div>
+{% endfor %}
+</div>
+</div>
 </div>
 
-<div class="card" style="margin-top:24px;">
-    <h2 style="margin-top:0;font-size:18px;">Quick Actions</h2>
-    <p style="color:var(--muted);">Browse the database like a research terminal. Start with the full stock list or jump into today's suggestions.</p>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;">
-        <a class="btn" href="/stocks">View All Stocks</a>
-        <a class="btn secondary" href="/suggestions">Top Suggestions</a>
-        <a class="btn secondary" href="/prices">Price History</a>
-    </div>
-</div>
-
-<!-- Dashboard Overview Charts -->
-{% if stats.total_stocks > 0 and stats.total_suggestions > 0 %}
 <div class="card" style="margin-top:32px;">
-    <h2 style="margin-top:0;font-size:18px;">Market Overview</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));gap:16px;">
-        
-        <!-- Top Gainers Bar Chart -->
-        <div class="chart-box">
-            <h3>Top Gainers</h3>
-            <div class="chart-container" style="position: relative; height: 200px;">
-                <canvas id="topGainersChart"></canvas>
-            </div>
-        </div>
-        
-        <!-- Score Distribution Histogram -->
-        <div class="chart-box">
-            <h3>Suggestions Score Distribution</h3>
-            <div class="chart-container" style="position: relative; height: 200px;">
-                <canvas id="scoreHistogramChart"></canvas>
-            </div>
-        </div>
-        
-    </div>
+<h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);margin-bottom:12px;">Sector Performance</h3>
+<div style="display:flex;flex-wrap:wrap;gap:8px;">
+{% for sector in demo_data.sectors %}
+<div class="sector-chip {% if sector.pct>=0 %}up{% else %}down{% endif %}">
+<span class="name">{{sector.name}}</span><span class="pct">{{sector.pct|round(2)}}%</span>
 </div>
-{% endif %}
-
+{% endfor %}
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;">
+<div class="card">
+<h2 style="margin-top:0;font-size:18px;">Top Gainers</h2>
+<div style="display:flex;flex-direction:column;gap:8px;">
+{% for s in demo_data.gainers %}
+<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid var(--border);">
+<div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">{{s.name}}</span></div>
+<span class="change-chip up">+{{s.changePct|round(2)}}%</span>
+</div>
+{% endfor %}
+</div>
+</div>
+<div class="card">
+<h2 style="margin-top:0;font-size:18px;">Top Losers</h2>
+<div style="display:flex;flex-direction:column;gap:8px;">
+{% for s in demo_data.losers %}
+<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid var(--border);">
+<div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">{{s.name}}</span></div>
+<span class="change-chip down">{{s.changePct|round(2)}}%</span>
+</div>
+{% endfor %}
+</div>
+</div>
+</div>
 {% endblock %}
-
 {% block extra_scripts %}
 <script>
-// Top Gainers Chart Data - will be populated from Flask context
-const topGainerLabels = {{ top_gainer_labels|tojson|safe }};
-const topGainerValues = {{ top_gainer_values|tojson|safe }};
-
-// Score Distribution Data
-const scoreLabels = {{ score_labels|tojson|safe }};
-const scoreData = {{ score_data|tojson|safe }};
-
-// Initialize Top Gainers Chart
-const topGainerCtx = document.getElementById('topGainersChart').getContext('2d');
-new Chart(topGainerCtx, {
-    type: 'bar',
-    data: {
-        labels: topGainerLabels,
-        datasets: [{
-            label: 'Gainers',
-            data: topGainerValues,
-            backgroundColor: 'rgba(34, 197, 94, 0.5)',
-            borderColor: 'rgb(34, 197, 94)',
-            borderWidth: 1
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-            y: { 
-                grid: { color: 'rgba(0,0,0,0.05)' },
-                ticks: { callback: function(value) { return value; } }
-            }
-        }
-    }
-});
-
-// Initialize Score Distribution Histogram
-const scoreCtx = document.getElementById('scoreHistogramChart').getContext('2d');
-new Chart(scoreCtx, {
-    type: 'bar',
-    data: {
-        labels: scoreLabels,
-        datasets: [{
-            label: 'Suggestions',
-            data: scoreData,
-            backgroundColor: 'rgba(59, 130, 246, 0.5)',
-            borderColor: 'rgb(59, 130, 246)',
-            borderWidth: 1
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-            y: { 
-                grid: { color: 'rgba(0,0,0,0.05)' },
-                ticks: { callback: function(value) { return value; } }
-            }
-        }
-    }
+const priceCtx = document.getElementById('priceChart').getContext('2d');
+const gradient = priceCtx.createLinearGradient(0, 0, 0, 300);
+gradient.addColorStop(0, 'rgba(37,99,235,0.3)');
+gradient.addColorStop(1, 'rgba(37,99,235,0.0)');
+new Chart(priceCtx, { type: 'line', data: { labels: ['9:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30'], datasets: [{ label: 'NIFTY 50', data: [24750,24780,24820,24800,24850,24830,24870,24860,24890,24920,24900,24940,24960], borderColor: '#2563eb', backgroundColor: gradient, tension: 0.4, fill: true, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: 'var(--muted-foreground)', font: { size: 10 } } }, y: { grid: { color: 'var(--border)' }, ticks: { color: 'var(--muted-foreground)', font: { size: 10 }, callback: function(v){ return v.toLocaleString(); } } } } });
+document.querySelectorAll('.timeframe-group .btn-secondary').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.timeframe-group .btn-secondary').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+    });
 });
 </script>
 {% endblock %}

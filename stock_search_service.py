@@ -93,22 +93,27 @@ class StockSearchService:
         return mock_data
     
     def get_stock_history(self, symbol: str, period: str = "3mo", days: int = 60) -> List[Dict[str, Any]]:
-        """Get historical stock data."""
-        # Mock historical data
-        dates = []
-        for i in range(days):
-            date = f"2026-08-{i+1:02d}"  # Mock dates
-            dates.append(date)
-        
-        return [
-            {
-                "date": date,
-                "open": 1000.0 + i * 0.1,
-                "high": 1050.0 + i * 0.5,
-                "low": 950.0 + i * 0.3,
-                "close": 1020.0 + i * 0.2,
-                "adjusted_close": 1020.0 + i * 0.2,
-                "volume": 1000000 + i * 1000
-            }
-            for i, date in enumerate(dates)
-        ]
+        """Get historical stock data from Yahoo Finance."""
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period=period)
+            if hist is None or hist.empty:
+                return []
+            
+            # Convert to list of dicts, take last 'days' records
+            records = []
+            for date, row in hist.iterrows():
+                records.append({
+                    "date": date.strftime('%d-%m-%Y'),
+                    "open": float(row["Open"]),
+                    "high": float(row["High"]),
+                    "low": float(row["Low"]),
+                    "close": float(row["Close"]),
+                    "adjusted_close": float(row.get("Adj Close", row["Close"])),
+                    "volume": float(row["Volume"])
+                })
+            return records[-days:]
+        except Exception as e:
+            logger.error(f"Error fetching history for {symbol}: {e}")
+            return []

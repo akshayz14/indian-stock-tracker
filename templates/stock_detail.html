@@ -125,9 +125,17 @@ const volumeValues = [];
 
 {% for price in price_history %}
 priceLabels.push("{{ price.date|ddmmmyyyy }}");
-priceValues.push({{ price.close if price.close is not none else 0 }});
-volumeValues.push({{ price.volume if price.volume is not none else 0 }});
+priceValues.push({{ price.close if price.close is not none else null }});
+volumeValues.push({{ price.volume if price.volume is not none else null }});
 {% endfor %}
+
+// Show all labels when there are few enough data points so the
+// most recent date is always visible as the last tick.
+// For larger datasets, fall back to auto-skipping with a cap.
+const showAllLabels = priceLabels.length <= 30;
+const xTicksConfig = showAllLabels
+    ? { grid: { display: false }, autoSkip: false, maxRotation: 0, minRotation: 0 }
+    : { grid: { display: false }, maxTicksLimit: 10 };
 
 // Price Chart
 const priceCtx = document.getElementById('priceChart').getContext('2d');
@@ -150,6 +158,7 @@ new Chart(priceCtx, {
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        spanGaps: false,
         interaction: { intersect: false, mode: 'index' },
         plugins: {
             legend: { display: false },
@@ -164,7 +173,7 @@ new Chart(priceCtx, {
             }
         },
         scales: {
-            x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+            x: { ticks: xTicksConfig },
             y: {
                 grid: { color: 'rgba(0,0,0,0.05)' },
                 ticks: { callback: function(value) { return '₹' + value.toLocaleString(); } }
@@ -203,7 +212,7 @@ new Chart(volumeCtx, {
             }
         },
         scales: {
-            x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+            x: { ticks: xTicksConfig },
             y: {
                 grid: { color: 'rgba(0,0,0,0.05)' },
                 ticks: { callback: function(value) { return value.toLocaleString(); } }
