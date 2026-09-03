@@ -6,8 +6,30 @@
 - Database files `stocks.db` and `mutual_funds.db` exist and are populated.
 - Dependencies listed in `requirements.txt`; some may need installation.
 
-## Recent Changes (2026-08-30)
-- Fixed critical bug in `data_sources.py` `YFinanceSource.fetch_history()` method that was returning OLDEST 60 days instead of most recent 60 days
+## Recent Changes
+- Landing page redesign completed (2026-09-01)
+  - Fixed non-dashboard page styling (2026-09-02)
+    - Rewrote `static/style.css` (185 lines) with full design tokens, table styles (`.data`, `.table-wrap`), filter form styles (`.filters`, `.field`), button styles (`.btn` defaults to primary look), pagination, badge, link, pos/neg score chips, tooltip-btn, fund-filters, fund-header, detail-row, kv-grid, error-page, search page styles
+    - Cleaned up leftover XML tags in `templates/top_mutual_funds.html`
+    - All pages now have consistent spacing, proper button appearance, and proper table layout with column gaps
+  - Fixed theme toggle light/dark mode button (2026-09-03)
+    - Removed dependency on Lucide CDN for the theme toggle
+    - Simplified to use only Unicode sun (☀) and moon (☾) characters
+    - Wrapped JavaScript in IIFE for safety
+    - Removed `lucide.createIcons()` call that was breaking the script
+    - Added `type="button"` to prevent form submission
+    - Removed the duplicate theme initialization script from `<head>`
+    - JavaScript now independently handles: localStorage persistence, dark class toggle, icon switching
+    - CSS rules properly handle `.dark` class for theme switching
+    - Button is now visible and functional - clicking toggles between light and dark mode
+  - Updated `templates/base.html` with Tailwind CSS, Lucide icons, Chart.js CDN, dark/light theme toggle with localStorage persistence, sidebar navigation
+  - Updated `static/style.css` with complete modern theme design tokens (colors, spacing, typography), all component styles (stat-grid, cards, buttons, change-chip, stock-card, sector-chip, timeframe-group), responsive media queries
+  - Updated `templates/index.html` with full dashboard layout: stat-grid metrics, market performance chart with Chart.js, watch list, top stocks by index (NIFTY 50/NIFTY BANK), sector performance, top gainers/losers, all using demo_data context
+  - Updated `static/demo_data.js` with CDN loading for all JS dependencies
+  - Updated `templates/stocks.html`, `templates/mutual_funds.html`, `templates/prices.html`, `templates/ai_suggestions.html` with consistent layout styling, header cards, table styling, responsive grid
+  - Fixed `insert_demo_data.py` to inject DEMO_DATA and context_processor into flask_app.py for template rendering
+  - Fixed index.html template slicing issue (changed `|slice(6,12)` to `demo_data.stocks[3:6]` for proper list slicing)
+  - Dashboard renders successfully at `/` with all 15 UI component checks passing
   - Removed `if len(records) >= limit: break` check that stopped collection early
   - Added `return records[-limit:]` to take the most recent records
   - This allows `detect_and_store_holidays()` to correctly identify missing data instead of incorrectly marking recent weekdays as holidays
@@ -63,9 +85,12 @@
 - Small Cap funds (31) just barely exceeds the 30+ threshold; may need to increase buffer
 - Database may contain stale or incomplete data if previous runs failed.
 - No test suite executed yet.
+- Demo data (DEMO_DATA) used for prototype UI - real data integration pending
 
 ## Next Steps
 - Verify `/mutual-funds` Flask route and template display correctly with the larger fund lists
 - Run `python run_daily.py` to populate stock data
-- Test CLI and Web UI functionality
+- Test CLI and Web UI functionality end-to-end
 - Verify mutual fund data appears in web UI at `/mutual-funds`
+- Replace demo data with real stock API data integration
+- Add unit tests for dashboard rendering and UI components

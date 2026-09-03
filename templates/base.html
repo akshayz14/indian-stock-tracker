@@ -1,11 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Stock Tracker{% endblock %} · Indian Stock Tracker</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>{% block title %}StockTracker{% endblock %} · Indian Stock Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        const stored = localStorage.getItem('theme');
+        if (stored === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
 </head>
 <body>
     <nav class="topnav">
@@ -17,11 +26,16 @@
             <a href="/suggestions" class="{% if active == 'suggestions' %}active{% endif %}">Suggestions</a>
             <a href="/gainers-losers" class="{% if active == 'gainers_losers' %}active{% endif %}">Gainers & Losers</a>
             <a href="/mutual-funds" class="{% if active == 'mutual_funds' %}active{% endif %}">Mutual Funds</a>
-            <a href="/search" class="{% if active == 'search' %}active{% endif %}">Search Stocks</a>
+            <a href="/search" class="{% if active == 'search' %}active{% endif %}">Search</a>
         </div>
         <form class="search" action="/stocks" method="get">
             <input type="text" name="q" placeholder="Search stocks…" value="{{ request.args.get('q','') }}">
         </form>
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" type="button">
+            <span class="theme-icon-sun" id="theme-icon-sun" aria-hidden="true">☀</span>
+            <span class="theme-icon-moon" id="theme-icon-moon" aria-hidden="true">☾</span>
+        </button>
+        <div class="avatar"><i data-lucide="user"></i></div>
     </nav>
 
     <div class="layout">
@@ -44,6 +58,33 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+
     {% block extra_scripts %}{% endblock %}
+
+    <script>
+        (function() {
+            const html = document.documentElement;
+            const stored = localStorage.getItem('theme');
+            if (stored === 'dark') { html.classList.add('dark'); }
+            const themeToggle = document.getElementById('theme-toggle');
+            const sun = document.getElementById('theme-icon-sun');
+            const moon = document.getElementById('theme-icon-moon');
+            function updateIcon() {
+                if (html.classList.contains('dark')) {
+                    sun.style.display = 'none';
+                    moon.style.display = 'inline-block';
+                } else {
+                    sun.style.display = 'inline-block';
+                    moon.style.display = 'none';
+                }
+            }
+            themeToggle.addEventListener('click', () => {
+                html.classList.toggle('dark');
+                localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+                updateIcon();
+            });
+            updateIcon();
+        })();
+    </script>
 </body>
 </html>
