@@ -1,5 +1,18 @@
 # Known Issues
 
+## 11. Missing Columns When Merging Old Production Database (Fixed)
+
+**Description:** When merging with an old production project that was already deployed, the old database lacked the `is_holiday` column in `daily_prices` (and `latest_nav_date` in `mutual_fund_assets`). The `_add_missing_columns()` function in `models.py` was designed to handle this, but it was only called from `init_db()` which wasn't invoked by `cli.py` or `flask_app.py`. This caused `sqlalchemy.OperationalError: no such column: daily_prices.is_holiday` errors.
+
+**Location:** `models.py` — `get_session()` and `get_mutual_fund_session()` functions
+
+**Fix Applied:** Modified `get_session()` and `get_mutual_fund_session()` to automatically call `Base.metadata.create_all(engine)` and the respective `_add_missing_columns()` functions before returning a session. This ensures any existing database (newly created or from a merged old project) gets the required columns automatically on first use.
+
+**Status:** Fixed (2026-09-03)
+
+
+# Known Issues
+
 ## 1. Dashboard Charts Not Displaying Data (Fixed)
 **Description**: The dashboard overview charts (Top Gainers Bar Chart and Score Distribution Histogram) in `templates/index.html` reference JavaScript variables (`top_gainer_labels`, `top_gainer_values`, `score_labels`, `score_data`) that are not being passed from the Flask `index()` route in `flask_app.py`. This caused an `Object of type Undefined is not JSON serializable` error on the dashboard.
 

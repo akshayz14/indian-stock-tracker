@@ -132,6 +132,12 @@ def init_db():
 
 def get_session():
     engine = get_engine()
+    # Ensure schema is up to date before returning a session.
+    # This handles the case where an existing database file (e.g. from a
+    # previous version or a merged old project) is missing columns that
+    # the current models expect.
+    Base.metadata.create_all(engine)
+    _add_missing_columns(engine)
     Session = sessionmaker(bind=engine)
     return Session()
 
@@ -159,5 +165,8 @@ def _add_missing_mutual_fund_columns(engine):
 
 def get_mutual_fund_session():
     engine = get_mutual_fund_engine()
+    # Ensure schema is up to date before returning a session.
+    Base.metadata.create_all(engine)
+    _add_missing_mutual_fund_columns(engine)
     Session = sessionmaker(bind=engine)
     return Session()

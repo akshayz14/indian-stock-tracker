@@ -1,5 +1,26 @@
 # Task History
 
+## 2026-09-03: Fix Missing Columns in Legacy Databases - COMPLETED
+
+**Type:** Bug Fix
+**Status:** Completed
+
+**Goal:** Fix `sqlalchemy.OperationalError: no such column: daily_prices.is_holiday` that occurs when merging with an old production database that lacks the `is_holiday` column.
+
+**Problem:** The `_add_missing_columns()` function in `models.py` was designed to handle schema migrations, but it was only called from `init_db()`. Many code paths (like `cli.py` and `flask_app.py`) use `get_session()` directly without calling `init_db()` first, so the migration never happened.
+
+**Fix Applied:**
+1. Modified `get_session()` in `models.py` to automatically call `Base.metadata.create_all(engine)` and `_add_missing_columns(engine)` before creating a session.
+2. Modified `get_mutual_fund_session()` in `models.py` to automatically call `Base.metadata.create_all(engine)` and `_add_missing_mutual_fund_columns(engine)` before creating a session.
+
+**Files Changed:**
+- `models.py` — Updated `get_session()` and `get_mutual_fund_session()` to auto-migrate schema on first use.
+
+**Impact:** Any existing database (including those from merged old production projects) now automatically gets the required columns (`is_holiday` in `daily_prices`, `latest_nav_date` in `mutual_fund_assets`) without manual intervention.
+
+**Test:** Verified with a test that creates an old-style database without the `is_holiday` column, then calls `get_session()` — the column is automatically added and queries succeed.
+# Task History
+
 ## 2026-08-30: Change Top 50 Mutual Funds to use mutual_funds.db - COMPLETED
 
 **Type**: Feature (Data Source Change)
