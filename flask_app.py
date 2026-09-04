@@ -58,7 +58,11 @@ def login_required(f):
 
 # Initialize mutual funds database on startup
 def init_mutual_funds_db():
-    """Initialize the mutual funds database and create tables if they don't exist."""
+    """Initialize the mutual funds database."""
+    from models import Base
+    engine = get_mutual_fund_engine()
+    Base.metadata.create_all(engine)
+    print("Mutual funds database tables initialized successfully.")
 
 # Demo data for prototype - TODO: Replace with real data sources when available
 DEMO_DATA = {
@@ -111,14 +115,6 @@ def inject_demo_data():
         final_demo_data['losers'] = real_gl_data.get('losers', DEMO_DATA['losers'])
     
     return dict(demo_data=final_demo_data)
-
-    try:
-        engine = get_mutual_fund_engine()
-        from models import Base
-        Base.metadata.create_all(engine)
-        print("Mutual funds database tables initialized successfully.")
-    except Exception as e:
-        print(f"Warning: Could not initialize mutual funds database: {e}")
 
 # Run initialization on import
 init_mutual_funds_db()

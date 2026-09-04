@@ -147,6 +147,7 @@ def get_session():
     # the current models expect.
     Base.metadata.create_all(engine)
     _add_missing_columns(engine)
+    _set_schema_version(engine, '2.0')
     Session = sessionmaker(bind=engine)
     return Session()
 
@@ -177,6 +178,7 @@ def get_mutual_fund_session():
     # Ensure schema is up to date before returning a session.
     Base.metadata.create_all(engine)
     _add_missing_mutual_fund_columns(engine)
+    _set_schema_version(engine, '2.0')
     Session = sessionmaker(bind=engine)
     return Session()
 def _get_schema_version(engine) -> str:
