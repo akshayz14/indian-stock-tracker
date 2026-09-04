@@ -280,16 +280,34 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                titleColor: '#ffffff',
+                                bodyColor: '#e2e8f0',
+                                borderColor: 'rgba(255,255,255,0.1)',
+                                borderWidth: 1
+                            }
+                        },
                         scales: {
                             x: {
                                 grid: { display: false },
-                                ticks: { color: 'var(--muted-foreground)', font: { size: 10 } }
+                                ticks: {
+                                    color: function(context) {
+                                        return getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim();
+                                    },
+                                    font: { size: 10 }
+                                }
                             },
                             y: {
-                                grid: { color: 'var(--border)' },
+                                grid: { color: function(context) {
+                                    return getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+                                } },
                                 ticks: {
-                                    color: 'var(--muted-foreground)',
+                                    color: function(context) {
+                                        return getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim();
+                                    },
                                     font: { size: 10 },
                                     callback: function(v) { return v.toLocaleString(); }
                                 }
