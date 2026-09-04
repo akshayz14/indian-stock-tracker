@@ -23,6 +23,27 @@
 
 **Status:** Completed (2026-09-03)
 
+## 2026-09-09: Mobile Navigation Buttons Not Showing - COMPLETED
+
+**Type:** Bug Fix
+**Status:** Completed
+
+**Goal:** Restore mobile access to all navigation buttons (Dashboard, Stocks, Prices, Suggestions, Gainers & Losers, Mutual Funds, Search) after recent UI changes hid the sidebar and topnav links on small screens.
+
+**Problem:** On screens ≤1024px, `static/style.css:178` hid both `.sidebar` and `.navlinks` with `display:none` but introduced no hamburger menu or alternative navigation. Mobile users were stuck on a page with only the logo, theme toggle, and avatar visible.
+
+**Fix Applied:**
+- `templates/base.html`: Added a hamburger toggle button (`<button id="nav-toggle">` with three-line CSS icon) to the topnav, and a slide-in drawer (`<div class="mobile-nav">`) after `</nav>` containing all 7 nav links + a search input, plus a small IIFE script handling open/close/overlay-click/link-click/ESC.
+- `static/style.css`: Added `.nav-toggle` (hidden by default, shown at `max-width: 1024px`), `.mobile-nav`, `.mobile-nav-overlay`, `.mobile-nav-panel`, `.mobile-nav-header`, `.nav-close`, `.mobile-nav-links`, `.mobile-nav-search` styles. Drawer slides in from the left using existing CSS variables.
+
+**Files Changed:**
+- `templates/base.html` - Added hamburger button, mobile-nav drawer markup, and toggle script
+- `static/style.css` - Added hamburger button and mobile drawer styles
+
+**Verification:** All routes return HTTP 200. Rendered HTML at `/` contains the nav-toggle button, mobile-nav drawer, and all 7 navigation links. Theme toggle, avatar, and topnav spacing remain intact on desktop.
+
+**Status:** Completed (2026-09-09)
+
 ## 2026-09-03: Update Documentation Files - COMPLETED
 
 **Type:** Documentation

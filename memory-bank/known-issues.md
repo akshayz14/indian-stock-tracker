@@ -145,6 +145,24 @@
 
 **Status**: Open (considered low priority)
 
+## 5b. Stock Search Dropdown Had Transparent Background / Invisible Suggestions (Fixed)
+**Description**: The stock search autocomplete dropdown (`templates/search.html`) used CSS variables `--surface` and `--text` which **do not exist** in the project's design tokens (`static/style.css`). Undefined CSS variables fall back to `transparent`/inherited, so:
+- The dropdown background was transparent and blended into the page background.
+- Suggestion text (`color: var(--text)`) had no defined color, making names nearly invisible in dark mode.
+- Hover used `transparent` as the reset, so hovering didn't provide a visible highlight.
+
+**Location**: `templates/search.html` lines 21, 27, 45, 58, 84-88 (JS-generated suggestions).
+
+**Fix Applied** (2026-09-09): Replaced undefined variables with the correct project tokens:
+- `var(--surface)` → `var(--card)` (solid card background: `#131826` dark / `#ffffff` light)
+- `var(--text)` → `var(--foreground)` (text color: `#e2e8f0` dark / `#0f172a` light)
+- `var(--muted)` → `var(--muted-foreground)` (secondary text)
+- Dropdown hover: `rgba(59,130,246,0.05)` → `var(--primary-soft)` for consistent theme
+- Dropdown z-index: `100` → `1000` (ensure it renders above other page content)
+- Dropdown shadow: `0 4px 12px rgba(0,0,0,0.1)` → `0 8px 24px rgba(0,0,0,0.35)` (more visible in dark mode)
+
+**Status**: Fixed (2026-09-09)
+
 ## 6. GitHub Actions Cron Schedule Ran Before NSE Market Open (Fixed)
 **Description**: The scheduled workflow in `.github/workflows/update-stock-data.yml` was set to `cron: '0 0 * * *'` which corresponds to **00:00 UTC = 05:30 IST**. This runs **before NSE market opens** (09:15-15:30 IST), meaning the data fetcher would either fail to get same-day data or fall back to stale previous-day data.
 
@@ -271,5 +289,25 @@
 **Why This Works**:
 - `.widget-chart` has `position: relative; height: 300px`. Now that it's inside `.card` (which sits inside the `2fr` grid track), the canvas's parent has a fixed width and the Chart.js `responsive: true` + `maintainAspectRatio: false` correctly resizes the chart to fit the column.
 - The grid now has exactly two children, so `grid-template-columns: 2fr 1fr` produces the intended Market Performance (wide) / Watch List (narrow) layout.
+
+**Status**: Fixed (2026-09-09)
+
+## 14. Mobile Navigation Buttons Not Showing (Fixed) — 2026-09-09
+
+**Description**: On screens ≤1024px, both `.sidebar` and `.navlinks` were hidden with `display:none`, leaving mobile users with no way to navigate (no hamburger menu replacement). The topnav showed only the logo, theme toggle, and avatar, so the seven navigation buttons (Dashboard, Stocks, Prices, etc.) were inaccessible.
+
+**Root Cause**: The CSS at `static/style.css:178` (media query at `max-width: 1024px`) hid both `.sidebar` and `.navlinks` but introduced no alternative way to access navigation on small screens.
+
+**Fix Applied**:
+- `templates/base.html`: added a `<button id="nav-toggle">` with a three-line CSS hamburger icon to the topnav (after the logo). Added a `<div class="mobile-nav">` drawer immediately after `</nav>` containing an overlay, a header with logo + close button, all 7 nav links (with active-state highlighting matching the desktop topnav), and a search input. Added a small IIFE script to handle toggle/close/overlay-click/link-click/ESC-to-close.
+- `static/style.css`: added `.nav-toggle` (hidden by default, shown at `max-width: 1024px` via the media query); added `.mobile-nav`, `.mobile-nav-overlay`, `.mobile-nav-panel`, `.mobile-nav-header`, `.nav-close`, `.mobile-nav-links`, `.mobile-nav-search` styles. The drawer slides in from the left (`transform: translateX(-100%)` → `0`) and uses existing CSS variables for theming consistency.
+
+**Why This Works**:
+- The hamburger button is positioned in the topnav (right after the logo) so it appears on every page that extends `base.html` — no per-template changes needed.
+- The drawer reuses the same `active` variable and link list as the desktop topnav, so highlighting stays in sync.
+- The existing `.sidebar { display:none }` and `.navlinks { display:none }` rules at `max-width: 1024px` are kept; the drawer fills the navigation gap.
+- All 7 navigation buttons (Dashboard, Stocks, Prices, Suggestions, Gainers & Losers, Mutual Funds, Search) plus a search input are now reachable on mobile.
+
+**Verification**: All pages return HTTP 200. The rendered HTML at `/` contains 2 `nav-toggle` references, 8 `mobile-nav` references, and the 📊 Dashboard / 🔍 Search links inside the drawer. Theme toggle, avatar, and topnav spacing remain intact on desktop.
 
 **Status**: Fixed (2026-09-09)
