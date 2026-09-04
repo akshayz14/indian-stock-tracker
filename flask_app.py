@@ -11,6 +11,7 @@ import json
 import os
 from datetime import datetime, timedelta, date
 from stock_search_service import StockSearchService
+from real_data_service import get_dashboard_data_with_fallback
 
 # In-memory cache for searched stock 60-day price history (TTL: 15 minutes)
 search_history_cache = {}
@@ -98,7 +99,16 @@ DEMO_DATA = {
 
 @app.context_processor
 def inject_demo_data():
-    return dict(demo_data=DEMO_DATA)
+    # Fetch real gainers/losers data (limit to 5 for dashboard display)
+    real_gl_data = get_dashboard_data_with_fallback(limit=5)
+    
+    # Build final demo_data dict with real gainers/losers
+    final_demo_data = dict(DEMO_DATA)
+    if real_gl_data is not None:
+        final_demo_data['gainers'] = real_gl_data.get('gainers', DEMO_DATA['gainers'])
+        final_demo_data['losers'] = real_gl_data.get('losers', DEMO_DATA['losers'])
+    
+    return dict(demo_data=final_demo_data)
 
     try:
         engine = get_mutual_fund_engine()

@@ -1,4 +1,4 @@
-# Current State (as of 2026-09-03)
+# Current State (as of 2026-09-09)
 
 ## Repository Status
 - All core files present and tracked in Git.
@@ -6,28 +6,13 @@
 - Database files `stocks.db` and `mutual_funds.db` exist and are populated.
 - Dependencies listed in `requirements.txt`; some may need installation.
 
-## Recent Changes (2026-08-30 to 2026-09-03)
-- Landing page redesign completed (2026-09-01)
-  - Fixed non-dashboard page styling (2026-09-02)
-    - Rewrote `static/style.css` (185 lines) with full design tokens, table styles (`.data`, `.table-wrap`), filter form styles (`.filters`, `.field`), button styles (`.btn` defaults to primary look), pagination, badge, link, pos/neg score chips, tooltip-btn, fund-filters, fund-header, detail-row, kv-grid, error-page, search page styles
-    - Cleaned up leftover XML tags in `templates/top_mutual_funds.html`
-    - All pages now have consistent spacing, proper button appearance, and proper table layout with column gaps
-  - Fixed theme toggle light/dark mode button (2026-09-03)
-    - Removed dependency on Lucide CDN for the theme toggle
-    - Simplified to use only Unicode sun (☀) and moon (☾) characters
-    - Wrapped JavaScript in IIFE for safety
-    - Removed `lucide.createIcons()` call that was breaking the script
-    - Added `type="button"` to prevent form submission
-    - Removed the duplicate theme initialization script from `<head>`
-    - JavaScript now independently handles: localStorage persistence, dark class toggle, icon switching
-    - CSS rules properly handle `.dark` class for theme switching
-    - Button is now visible and functional - clicking toggles between light and dark mode
-  - Updated `templates/base.html` with Tailwind CSS, Lucide icons, Chart.js CDN, dark/light theme toggle with localStorage persistence, sidebar navigation
-  - Updated `static/style.css` with complete modern theme design tokens (colors, spacing, typography), all component styles (stat-grid, cards, buttons, change-chip, stock-card, sector-chip, timeframe-group), responsive media queries
-  - Updated `templates/index.html` with full dashboard layout: stat-grid metrics, market performance chart with Chart.js, watch list, top stocks by index (NIFTY 50/NIFTY BANK), sector performance, top gainers/losers, all using demo_data context
-  - Updated `static/demo_data.js` with CDN loading for all JS dependencies
-  - Updated `templates/stocks.html`, `templates/mutual_funds.html`, `templates/prices.html`, `templates/ai_suggestions.html` with consistent layout styling, header cards, table styling, responsive grid
-  - Fixed `insert_demo_data.py` to inject DEMO_DATA and context_processor into flask_app.py for template rendering
+## Recent Changes (2026-08-30 to 2026-09-09)
+- **Dashboard Real-Data Integration (2026-09-09)** — `real_data_service.py` created to fetch real top gainers/losers from NSE India via `nsetools`.
+  - New module `real_data_service.py` with `get_dashboard_data_with_fallback()`, `GainerLoserStock` and `DashboardData` dataclasses, in-memory caching (5 min TTL), and yfinance name enrichment.
+  - `flask_app.py` updated to import `get_dashboard_data_with_fallback` and modified `inject_demo_data` context processor to replace `DEMO_DATA` gainers/losers with real data.
+  - `/gainers-losers` route already uses live NSE data (unchanged).
+  - Fallback to `DEMO_DATA_FALLBACK` if NSE API is unavailable.
+- Dashboard renders successfully at `/` with all 15 UI component checks passing
   - Fixed index.html template slicing issue (changed `|slice(6,12)` to `demo_data.stocks[3:6]` for proper list slicing)
   - Dashboard renders successfully at `/` with all 15 UI component checks passing
   - Removed `if len(records) >= limit: break` check that stopped collection early
