@@ -35,10 +35,36 @@ A lightweight, automated system for Indian investors to fetch daily market data,
 - SQLite database size ≤ 200 MB for typical usage
 
 ## Document Version
-- PRD.md: Version 1.2, Last Updated: 2026-08-21
-- TRD.md: Version 1.2, Last Updated: 2026-08-21
+- PRD.md: Version 1.3, Last Updated: 2026-09-03
+- TRD.md: Version 1.3, Last Updated: 2026-09-03
+- DEPLOYMENT.md: Version 1.3, Last Updated: 2026-09-03
+- IMPLEMENTATION_PLAN.md: Version 1.3, Last Updated: 2026-09-03
+- Landing Page Redesign Spec: 2026-09-01
 
+## Recent Enhancements (2026-08-30 to 2026-09-03)
+- **Mutual Fund Dynamic Fetching**: Rewrote `mutual_fund_db.py` to dynamically fetch 30+ funds per category from TigZig API (vs hardcoded list)
+- **Freshness Filtering**: Added `is_fund_recent()` to exclude discontinued funds (730-day/365-day thresholds)
+- **Schema Version Tracking**: Added `schema_version` table + auto-migration in `get_session()`/`get_mutual_fund_session()` (v2.0)
+- **Enhanced Scoring**: Added RSI, MA, close strength, gap signals in `scoring2.py`
+- **Landing Page Redesign**: Modern fintech UI with Tailwind CSS v4, dark/light theme toggle, Chart.js
+- **Demo Data Integration**: `static/demo_data.js` provides structured data for UI development
+- **60-Day Window Scoring**: `run_daily.py` generates suggestions for ALL dates in 60-day window (2145+ suggestions across 43+ dates)
+- **Friendly Error Pages**: `categorize_error()` + `templates/error.html` for API failures
+- **Stock Search**: `/search` route with yfinance fallback for non-Nifty 50 stocks
+- **Holiday Detection**: `detect_and_store_holidays()` for market calendar awareness
+
+## Open Items
+- Mutual fund processing not integrated into `run_daily.py` (must run separately)
+- Mutual fund navigation links missing from sidebar
+- No test suite executed yet
+- Demo data used for UI - real data integration pending
+- GitHub Actions schedule (07:17 IST) still runs before market open (09:15 IST)
+
+## Checklists
 - [x] Create project-context.md
-- [x] Update PRD.md to version 1.2
+- [x] Update PRD.md to version 1.3
+- [x] Update TRD.md to version 1.3
 - [x] Update architecture.md to include mutual fund implementation details
+- [x] Update DEPLOYMENT.md to include mutual fund processing
+- [x] Update IMPLEMENTATION_PLAN.md with completed chart implementation
 - [x] Create known-issues.md documenting project issues

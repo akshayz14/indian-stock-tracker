@@ -1,19 +1,86 @@
 # Known Issues
 
-## 11. Missing Columns When Merging Old Production Database (Fixed)
+## 11. Schema Version Tracking (Fixed) — 2026-09-03
 
-**Description:** When merging with an old production project that was already deployed, the old database lacked the `is_holiday` column in `daily_prices` (and `latest_nav_date` in `mutual_fund_assets`). The `_add_missing_columns()` function in `models.py` was designed to handle this, but it was only called from `init_db()` which wasn't invoked by `cli.py` or `flask_app.py`. This caused `sqlalchemy.OperationalError: no such column: daily_prices.is_holiday` errors.
+**Description:** When merging with an old production database, missing columns caused `sqlalchemy.OperationalError: no such column` errors. Added schema version tracking (v2.0) with auto-migration in `get_session()` and `get_mutual_fund_session()`.
 
 **Location:** `models.py` — `get_session()` and `get_mutual_fund_session()` functions
 
-**Fix Applied:** Modified `get_session()` and `get_mutual_fund_session()` to automatically call `Base.metadata.create_all(engine)` and the respective `_add_missing_columns()` functions before returning a session. This ensures any existing database (newly created or from a merged old project) gets the required columns automatically on first use.
-
 **Status:** Fixed (2026-09-03)
 
+## 10. fetch_history Returned Oldest Records Instead of Most Recent (Fixed) — 2026-08-30
 
-# Known Issues
+**Description:** `YFinanceSource.fetch_history()` returned the OLDEST 60 days instead of the most recent 60 days due to early loop break.
 
-## 1. Dashboard Charts Not Displaying Data (Fixed)
+**Fix Applied:** Removed `if len(records) >= limit: break`, added `return records[-limit:]`.
+
+**Status:** Fixed (2026-08-30)
+
+## 9. Mutual Fund Dynamic Fetching — COMPLETED (2026-08-30)
+
+**Description:** Rewrote `mutual_fund_db.py` to dynamically fetch 30+ funds per category from TigZig API.
+
+**Results:** Large Cap (33), Mid Cap (45), Small Cap (31), Debt (45) = 154 funds total
+
+**Status:** Completed (2026-08-30)
+
+## 8. Stock Detail Chart X-Axis Misleading Last Tick Label (Fixed)
+
+**Description:** Chart.js `maxTicksLimit: 10` caused auto-skipping of x-axis tick labels.
+
+**Fix Applied:** Show ALL labels when `priceLabels.length <= 30` by setting `autoSkip: false`.
+
+**Status:** Fixed
+
+## 7. Mutual Fund Freshness Filtering (Fixed) — 2026-08-29
+
+**Description:** Discontinued/wound-up funds shown in listings.
+
+**Fix Applied:** Added `is_fund_recent()`, freshness thresholds (730/365 days), `latest_nav_date` column.
+
+**Status:** Fixed (2026-08-29)
+
+## 6. GitHub Actions Schedule Before Market Open (Fixed) — 2026-08-29
+
+**Description:** Cron schedule ran at 05:30 IST, before market open.
+
+**Fix Applied:** Changed to `47 1 * * *` (07:17 IST).
+
+**Status:** Fixed (2026-08-29)
+
+## 5. Search Cache May Serve Stale Data
+
+**Description:** In-memory cache has 1-hour TTL that doesn't invalidate on new data.
+
+**Status:** Open (low priority)
+
+## 4. Mutual Fund Suggestion Testing Incomplete
+
+**Status:** Open
+
+## 3. Mutual Fund Processing Not Integrated into Daily Job
+
+**Description:** `mutual_fund_db.py` not automatically triggered by `run_daily.py`.
+
+**Workaround:** Run separately: `python mutual_fund_db.py`
+
+**Status:** Open
+
+## 2. Missing Mutual Fund Navigation Links
+
+**Description:** No navigation links to `/mutual-funds` in sidebar or top nav.
+
+**Workaround:** Access via direct URL: `http://localhost:8080/mutual-funds`
+
+**Status:** Open
+
+## 1. Dashboard Charts Not Displaying Data (Fixed) — 2026-08-29
+
+**Description:** Dashboard charts referenced undefined JavaScript variables, causing JSON serialization error.
+
+**Fix Applied:** Added `|default([])` filter to chart variables, fixed camelCase typo.
+
+**Status:** Fixed (2026-08-29)
 **Description**: The dashboard overview charts (Top Gainers Bar Chart and Score Distribution Histogram) in `templates/index.html` reference JavaScript variables (`top_gainer_labels`, `top_gainer_values`, `score_labels`, `score_data`) that are not being passed from the Flask `index()` route in `flask_app.py`. This caused an `Object of type Undefined is not JSON serializable` error on the dashboard.
 
 **Location**:

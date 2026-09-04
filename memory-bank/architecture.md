@@ -4,12 +4,12 @@
 
 | Layer | Components | Responsibility |
 |-------|------------|----------------|
-| **Data Layer** | SQLAlchemy ORM models (`Asset`, `DailyPrice`, `Suggestion`, `MutualFundAsset`, `MutualFundSuggestion`) | Persist assets, daily OHLCV prices, and generated suggestions in SQLite. Separate database for mutual funds (`mutual_funds.db`). |
+| **Data Layer** | SQLAlchemy ORM models (`Asset`, `DailyPrice`, `Suggestion`, `MutualFundAsset`, `MutualFundSuggestion`, `schema_version`) | Persist assets, daily OHLCV prices, and generated suggestions in SQLite. Separate database for mutual funds (`mutual_funds.db`). Auto-migration with schema version tracking (v2.0). |
 | **Service Layer** | `data_sources.py` – `DataSource` abstraction with implementations: `NSESource`, `YFinanceSource`, `MutualFundSource` | Fetch raw market data from external providers with automatic fallback. |
-| **Business Logic** | `scoring2.py` – `calculate_score()`, `generate_suggestions()`, `calculate_mf_score()`, `generate_mf_suggestions()` | Compute composite scores (momentum, volume, RSI, MA, close strength, gap) and persist top‑N suggestions for both equities and mutual funds. |
-| **Orchestration** | `data_fetcher.py` – `fetch_and_store()`; `run_daily.py` – end‑to‑end daily job | Coordinate fetch → store → score → output. |
-| **CLI** | `cli.py` – `argparse` entry point | Query suggestions for a given date (default: latest available). |
-| **Web UI** | `flask_app.py` + Jinja2 templates (`templates/*.html`) | Browse DB, filter/sort, JSON APIs (`/api/stocks`, `/api/prices`, `/mutual-funds`). |
+| **Business Logic** | `scoring2.py` – `calculate_score()`, `generate_suggestions()`, `calculate_mf_score()`, `generate_mf_suggestions()` | Compute enhanced composite scores (momentum, volume, RSI, MA, close strength, gap) and persist top‑N suggestions for both equities and mutual funds. |
+| **Orchestration** | `data_fetcher.py` – `fetch_and_store()`; `run_daily.py` – end‑to‑end daily job; `run.py` – unified entry point | Coordinate fetch → store → score → output. |
+| **CLI** | `cli.py` – `argparse` entry point | Query suggestions for a given date (default: latest available); auto-generates if missing. |
+| **Web UI** | `flask_app.py` + Jinja2 templates (`templates/*.html`) + Tailwind CSS + Chart.js | Modern fintech UI with dark/light theme, browse DB, filter/sort, JSON APIs (`/api/stocks`, `/api/prices`, `/mutual-funds`). |
 
 ---
 

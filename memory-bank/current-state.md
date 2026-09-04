@@ -1,12 +1,12 @@
-# Current State (as of 2026-08-30)
+# Current State (as of 2026-09-03)
 
 ## Repository Status
 - All core files present and tracked in Git.
-- Virtual environment likely set up but not verified.
+- Virtual environment set up and active.
 - Database files `stocks.db` and `mutual_funds.db` exist and are populated.
 - Dependencies listed in `requirements.txt`; some may need installation.
 
-## Recent Changes
+## Recent Changes (2026-08-30 to 2026-09-03)
 - Landing page redesign completed (2026-09-01)
   - Fixed non-dashboard page styling (2026-09-02)
     - Rewrote `static/style.css` (185 lines) with full design tokens, table styles (`.data`, `.table-wrap`), filter form styles (`.filters`, `.field`), button styles (`.btn` defaults to primary look), pagination, badge, link, pos/neg score chips, tooltip-btn, fund-filters, fund-header, detail-row, kv-grid, error-page, search page styles
@@ -38,7 +38,12 @@
   - Collects top 50 suggestions per day and sorts by score globally to show the best opportunities across the entire window
   - Database now stores 2145+ suggestions across 43 trading dates (2026-07-01 to 2026-08-28)
 - Updated `/top-mutual-funds` route in `flask_app.py` to query from `mutual_funds.db` instead of `stocks.db`
-- Updated `templates/top_mutual_funds.html` to use correct field mappings for `MutualFundAsset` model (scheme_name, scheme_code, fund_house)
+- Added friendly error pages for API failures (`categorize_error()` + `templates/error.html`)
+- Added schema version tracking and auto-migration in `models.py` (v2.0)
+- Added stock search route with yfinance fallback for non-Nifty 50 stocks
+- Added `detect_and_store_holidays()` for market calendar awareness
+
+## Implementation Summary
 - Top 50 mutual funds now ranked globally across all categories (Large Cap, Mid Cap, Small Cap, Debt) from `mutual_funds.db`
 - Removed mutual fund suggestion generation from `run_daily.py` (lines 28-32 and import)
 
