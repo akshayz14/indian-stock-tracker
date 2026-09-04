@@ -2,21 +2,43 @@
 
 ## 2026-09-03: Fix Missing Columns in Legacy Databases - COMPLETED
 
-**Type:** Bug Fix
+**Type:** Bug Fix / Enhancement
 **Status:** Completed
 
-**Goal:** Fix `sqlalchemy.OperationalError: no such column: daily_prices.is_holiday` that occurs when merging with an old production database that lacks the `is_holiday` column.
+**Goal:** Fix `sqlalchemy.OperationalError: no such column: daily_prices.is_holiday` that occurs when merging with an old production database that lacks the `is_holiday` column, and implement systematic schema version tracking to prevent future occurrences.
 
-**Problem:** The `_add_missing_columns()` function in `models.py` was designed to handle schema migrations, but it was only called from `init_db()`. Many code paths (like `cli.py` and `flask_app.py`) use `get_session()` directly without calling `init_db()` first, so the migration never happened.
+**Problem:** The `_add_missing_columns()` function in `models.py` was designed to handle schema migrations, but it was only called from `init_db()`. Many code paths (like `cli.py` and `flask_app.py`) use `get_session()` directly without calling `init_db()` first, so the migration never happened when merging with old production databases.
 
 **Fix Applied:**
-1. Modified `get_session()` in `models.py` to automatically call `Base.metadata.create_all(engine)` and `_add_missing_columns(engine)` before creating a session.
-2. Modified `get_mutual_fund_session()` in `models.py` to automatically call `Base.metadata.create_all(engine)` and `_add_missing_mutual_fund_columns(engine)` before creating a session.
+
+1. **Modified `get_session()` in `models.py`** (line 142-151): Now automatically calls `Base.metadata.create_all(engine)` and `_add_missing_columns(engine)` before creating a session. This ensures the `is_holiday` column is added to `daily_prices` if missing, and all other expected columns are present.
+
+2. **Modified `get_mutual_fund_session()` in `models.py`** (line 166-173): Now automatically calls `Base.metadata.create_all(engine)` and `_add_missing_mutual_fund_columns(engine)` before creating a session. This ensures the `latest_nav_date` column is added to `mutual_fund_assets` if missing.
+
+3. **Added schema version tracking** (line 196-220): 
+   - Added `_get_schema_version()` and `_set_schema_version()` functions
+   - Modified `init_db(db_version='2.0')` to accept and track a schema version
+   - The schema version is stored in a `schema_version` table in the database
+   - `_set_schema_version()` uses INSERT/UPDATE logic to handle both new and existing (potentially empty) tables
+   - Version number increments whenever model changes are made, providing a systematic way to track changes
+
+4. **Updated callers to pass version:**
+   - `run.py` line 29: Changed `init_db()` to `init_db(db_version='2.0')`
+   - `run_daily.py` line 11: Changed `init_db()` to `init_db(db_version='2.0')`
+
+5. **Auto-migration on every session**: The `get_session()` and `get_mutual_fund_session()` functions now automatically run migrations on every session creation, ensuring that:
+   - New databases get the correct schema
+   - Old/merged databases get missing columns added automatically
+   - The schema version tracks what version the DB is at
 
 **Files Changed:**
-- `models.py` — Updated `get_session()` and `get_mutual_fund_session()` to auto-migrate schema on first use.
+- `models.py` — Core fix: updated `get_session()`, `get_mutual_fund_session()`, added `_get_schema_version()`, `_set_schema_version()`, updated `init_db()`
+- `run.py` — Updated to pass `db_version='2.0'` to `init_db()`
+- `run_daily.py` — Updated to pass `db_version='2.0'` to `init_db()`
 
-**Impact:** Any existing database (including those from merged old production projects) now automatically gets the required columns (`is_holiday` in `daily_prices`, `latest_nav_date` in `mutual_fund_assets`) without manual intervention.
+**Impact:** Any existing database (including those from merged old production projects) now automatically gets the required columns (`is_holiday` in `daily_prices`, `latest_nav_date` in `mutual_fund_assets`) without manual intervention. The schema version provides systematic tracking of model changes.
+
+**Test:** Verified with a test that creates an old-style database without the `is_holiday` column, then calls `get_session()` — the column is automatically added and queries succeed. The schema version is correctly tracked and persists across sessions.
 
 **Test:** Verified with a test that creates an old-style database without the `is_holiday` column, then calls `get_session()` — the column is automatically added and queries succeed.
 # Task History

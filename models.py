@@ -122,12 +122,21 @@ def _add_missing_columns(engine):
             if col_name not in dp_existing:
                 conn.execute(text(f'ALTER TABLE daily_prices ADD COLUMN "{col_name}" {col_type}'))
 
-def init_db():
+def init_db(db_version: str = '2.0'):
+    """Initialize the database with schema version tracking.
+    
+    Args:
+        db_version: The model/schema version this DB should have.
+                    Increment this number whenever model changes are made.
+    """
     engine = get_engine()
     # Create all tables first (handles initial schema creation)
     Base.metadata.create_all(engine)
-    # Then add any missing columns from model updates
+    # Add any missing columns from model updates
     _add_missing_columns(engine)
+    _add_missing_mutual_fund_columns(engine)
+    # Set schema version
+    _set_schema_version(engine, db_version)
     return engine
 
 def get_session():
@@ -170,3 +179,39 @@ def get_mutual_fund_session():
     _add_missing_mutual_fund_columns(engine)
     Session = sessionmaker(bind=engine)
     return Session()
+def _get_schema_version(engine) -> str:
+    """Get the current schema version from the database, or None if not set."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    if not inspector.has_table('schema_version'):
+        return None
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(text("SELECT version FROM schema_version")).fetchone()
+            return row[0] if row else None
+    except Exception:
+        return None
+
+
+def _set_schema_version(engine, version: str):
+    """Set the schema version in the database."""
+    from sqlalchemy import inspect, text
+    # Create table if it doesn't exist
+    inspector = inspect(engine)
+    if not inspector.has_table('schema_version'):
+        with engine.begin() as conn:
+            conn.execute(text("""
+                CREATE TABLE schema_version (
+                    id INTEGER PRIMARY KEY,
+                    version TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.execute(text("INSERT INTO schema_version (version) VALUES (:version)"), {"version": version})
+    else:
+        # Table exists but may be empty - use MERGE/UPSERT or INSERT/UPDATE
+        with engine.begin() as conn:
+            # Try UPDATE first, if no rows affected then INSERT
+            result = conn.execute(text("UPDATE schema_version SET version = :version, updated_at = CURRENT_TIMESTAMP"), {"version": version})
+            if result.rowcount == 0:
+                conn.execute(text("INSERT INTO schema_version (version) VALUES (:version)"), {"version": version})

@@ -8,7 +8,7 @@ from models import init_db, get_session, DailyPrice
 
 def main():
     # Ensure DB and tables exist
-    init_db()
+    init_db(db_version='2.0')
 
     # Define symbols to track (default list of ~50 NSE stocks)
     symbols = DEFAULT_SYMBOLS
