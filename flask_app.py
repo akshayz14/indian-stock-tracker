@@ -11,7 +11,9 @@ import json
 import os
 from datetime import datetime, timedelta, date
 from stock_search_service import StockSearchService
-from real_data_service import get_dashboard_data_with_fallback
+from real_data_service import get_dashboard_data_with_fallback, get_top_gainers_losers, DEMO_DATA_FALLBACK
+# Async dashboard endpoints - moved to separate module for clarity
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # In-memory cache for searched stock 60-day price history (TTL: 15 minutes)
 search_history_cache = {}
@@ -124,9 +126,16 @@ init_mutual_funds_db()
 @app.route('/')
 @login_required
 def index():
-    """Main dashboard showing overview of database"""
+    """Main dashboard showing overview of database.
+    
+    Optimized for fast initial page load:
+    - Only cheap DB queries (stats)
+    - No blocking external API calls (NSE/Yahoo Finance)
+    - Heavy data loaded asynchronously via /api/dashboard/* endpoints
+    """
     session = get_db_session()
     try:
+        # Only fetch stats - these are fast database operations
         stats = {
             'total_assets': session.query(Asset).count(),
             'total_stocks': session.query(Asset).filter(Asset.type == 'equity').count(),
@@ -135,22 +144,251 @@ def index():
             'latest_date': session.query(DailyPrice.date).order_by(DailyPrice.date.desc()).first()[0] if session.query(DailyPrice).first() else None
         }
         
-        # Fetch real-time index data for dashboard
-        try:
-            from index_data import get_index_data_with_fallback, get_sector_data_with_fallback, set_test_mode
-            # Enable test mode to use test data if real data unavailable
-            set_test_mode(False)
-            indices_data = get_index_data_with_fallback()
-            sectors_data = get_sector_data_with_fallback()
-        except Exception as e:
-            print(f"Error fetching real-time data: {e}")
-            # Fallback to demo data structure
-            indices_data = DEMO_DATA.get('indices', [])
-            sectors_data = DEMO_DATA.get('sectors', [])
+        # NOTE: Index data, sector data, gainers, losers are now loaded asynchronously
+        # via /api/dashboard/* endpoints to avoid blocking the initial response
+        # They will be fetched client-side after the page loads
         
-        return render_template('index.html', stats=stats, indices_data=indices_data, sectors_data=sectors_data, active='home')
+        return render_template('index.html', stats=stats, active='home')
     finally:
         session.close()
+
+
+# =============================================================================
+# Async Dashboard API Endpoints
+# =============================================================================
+
+@app.route('/api/dashboard/gainers')
+def api_dashboard_gainers():
+    """Async endpoint for top gainers. Returns real data or error state."""
+    try:
+        dashboard_data = get_top_gainers_losers(limit=10)
+        if dashboard_data and dashboard_data.gainers:
+            return jsonify({
+                'status': 'success',
+                'data': dashboard_data.to_dict()['gainers'],
+                'source': 'live'
+            })
+        return jsonify({
+            'status': 'unavailable',
+            'data': [],
+            'message': 'Top gainers data is currently unavailable. Market data refreshes during trading hours.',
+            'source': 'none'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'data': [],
+            'message': 'Unable to fetch top gainers data.',
+            'error': str(e),
+            'source': 'error'
+        }), 500
+
+
+@app.route('/api/dashboard/losers')
+def api_dashboard_losers():
+    """Async endpoint for top losers. Returns real data or error state."""
+    try:
+        dashboard_data = get_top_gainers_losers(limit=10)
+        if dashboard_data and dashboard_data.losers:
+            return jsonify({
+                'status': 'success',
+                'data': dashboard_data.to_dict()['losers'],
+                'source': 'live'
+            })
+        return jsonify({
+            'status': 'unavailable',
+            'data': [],
+            'message': 'Top losers data is currently unavailable. Market data refreshes during trading hours.',
+            'source': 'none'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'data': [],
+            'message': 'Unable to fetch top losers data.',
+            'error': str(e),
+            'source': 'error'
+        }), 500
+
+
+@app.route('/api/dashboard/chart-data')
+def api_dashboard_chart_data():
+    """Async endpoint for market performance chart data."""
+    try:
+        from index_data import get_index_data_with_fallback, set_test_mode
+        set_test_mode(False)
+        indices_data = get_index_data_with_fallback()
+        has_real_data = any(ind.get('value', 0) > 0 for ind in indices_data)
+        return jsonify({
+            'status': 'success' if has_real_data else 'partial',
+            'data': indices_data,
+            'source': 'live' if has_real_data else 'demo',
+            'message': None if has_real_data else 'Using demo data - live market data unavailable'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'data': [],
+            'message': 'Unable to fetch market data.',
+            'error': str(e),
+            'source': 'error'
+        }), 500
+
+
+@app.route('/api/dashboard/sector-performance')
+def api_dashboard_sector_performance():
+    """Async endpoint for sector performance data."""
+    try:
+        from index_data import get_sector_data_with_fallback, set_test_mode
+        set_test_mode(False)
+        sectors_data = get_sector_data_with_fallback()
+        return jsonify({
+            'status': 'success',
+            'data': sectors_data,
+            'source': 'live'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'data': [],
+            'message': 'Unable to fetch sector performance data.',
+            'error': str(e),
+            'source': 'error'
+        }), 500
+
+@app.route('/api/dashboard/watchlist')
+def api_dashboard_watchlist():
+    """Async endpoint for user's watchlist data."""
+    try:
+        import yfinance as yf
+        from models import Asset
+
+        session = get_db_session()
+        # Default watchlist symbols (or get from user if flask_login works)
+        watchlist_symbols = ['RELIANCE', 'TCS', 'HDFCBANK', 'ICICIBANK', 'INFY',
+                              'HINDUNILVR', 'ITC', 'SBIN', 'BHARTIARTL', 'KOTAKBANK']
+
+        # Fetch from DB first for names/sectors
+        assets = session.query(Asset).filter(Asset.symbol.in_(watchlist_symbols)).all()
+        asset_map = {a.symbol: a for a in assets}
+
+        # Fetch live prices via yfinance (with .NS suffix for NSE)
+        symbols_for_yf = [(s + '.NS') if s not in asset_map else s for s in watchlist_symbols]
+        tickers = yf.Tickers(' '.join(symbols_for_yf))
+
+        result = []
+        for orig_symbol, yf_symbol in zip(watchlist_symbols, symbols_for_yf):
+            try:
+                ticker = tickers.tickers.get(yf_symbol)
+                if not ticker:
+                    ticker = yf.Ticker(yf_symbol)
+                hist = ticker.history(period='2d', interval='1d')
+                if len(hist) >= 2:
+                    price = float(hist['Close'].iloc[-1])
+                    prev_close = float(hist['Close'].iloc[-2])
+                    change = price - prev_close
+                    changePct = (change / prev_close * 100) if prev_close > 0 else 0
+                else:
+                    price = float(ticker.info.get('previousClose', 0))
+                    change = 0
+                    changePct = 0
+
+                asset = asset_map.get(orig_symbol)
+                result.append({
+                    'symbol': orig_symbol.upper(),
+                    'name': asset.name if asset else orig_symbol,
+                    'price': round(price, 2),
+                    'change': round(change, 2),
+                    'changePct': round(changePct, 2),
+                    'sector': asset.sector if asset else 'N/A'
+                })
+            except Exception as e:
+                logger.debug(f'Could not fetch data for {orig_symbol}: {e}')
+                continue
+
+        return jsonify({
+            'status': 'success' if result else 'unavailable',
+            'data': result,
+            'source': 'live' if result else 'none',
+            'message': None if result else 'No watchlist data available'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'data': [],
+            'message': 'Unable to fetch watchlist data.',
+            'error': str(e),
+            'source': 'error'
+        }), 500
+
+
+@app.route('/api/dashboard/stats')
+def api_dashboard_stats():
+    """Async endpoint for the top stat boxes (NIFTY 50, Buy Signals, Top Sector).
+
+    Aggregates data from existing async sources plus a cheap DB count for
+    buy-signals (Suggestion rows for the most recent date) so the top of the
+    dashboard can populate independently of the heavy widgets.
+    """
+    # --- NIFTY 50 value/change (reuse index data; already cached upstream) ---
+    nifty_value = None
+    nifty_change_pct = None
+    nifty_source = 'unavailable'
+    try:
+        from index_data import get_index_data_with_fallback
+        indices_data = get_index_data_with_fallback()
+        for ind in indices_data:
+            if (ind.get('name') or '').upper() == 'NIFTY 50':
+                nifty_value = ind.get('value')
+                nifty_change_pct = ind.get('changePct')
+                nifty_source = ind.get('source', 'live') if ind.get('value', 0) > 0 else 'demo'
+                break
+    except Exception as e:
+        logger.debug(f"Stats endpoint: NIFTY lookup failed: {e}")
+
+    # --- Buy signals count (suggestions in DB for the most recent date) ---
+    buy_signals_count = 0
+    try:
+        session = get_db_session()
+        try:
+            latest_date_row = (
+                session.query(Suggestion.date)
+                .order_by(Suggestion.date.desc())
+                .first()
+            )
+            if latest_date_row is not None:
+                buy_signals_count = (
+                    session.query(Suggestion)
+                    .filter(Suggestion.date == latest_date_row[0])
+                    .count()
+                )
+        finally:
+            session.close()
+    except Exception as e:
+        logger.debug(f"Stats endpoint: buy signals count failed: {e}")
+
+    # --- Top sector (highest-pct sector from sector-performance data) ---
+    top_sector = None
+    try:
+        from index_data import get_sector_data_with_fallback
+        sectors_data = get_sector_data_with_fallback()
+        if sectors_data:
+            top = max(sectors_data, key=lambda s: s.get('pct', 0))
+            top_sector = top.get('name')
+    except Exception as e:
+        logger.debug(f"Stats endpoint: top sector lookup failed: {e}")
+
+    return jsonify({
+        'status': 'success',
+        'nifty': {
+            'value': round(nifty_value, 2) if nifty_value else None,
+            'changePct': round(nifty_change_pct, 2) if nifty_change_pct is not None else None,
+            'source': nifty_source,
+        },
+        'buy_signals': buy_signals_count,
+        'top_sector': top_sector,
+    })
+
 
 @app.route('/stocks')
 @login_required

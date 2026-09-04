@@ -255,3 +255,21 @@
 **Verification**: Live data sample — NIFTY 50 +0.31%, SENSEX +0.76%, NIFTY BANK +0.33%, NIFTY IT -0.09%, RELIANCE +2.13%, HDFCBANK +1.20%, ICICIBANK +0.14%, TCS -0.12%, WIPRO +1.25%.
 
 **Status**: Fixed (2026-09-04)
+
+## 13. Market Performance Chart Overflows Card & Page (Fixed) — 2026-09-09
+
+**Description**: The Market Performance line chart on the dashboard rendered correctly in the canvas itself, but the canvas extended past the right edge of the page. The Market Performance card (with header + timeframe buttons) was correctly sized in the left column, but the chart itself was placed outside that card and rendered at near-full page width, pushing the Watch List card into a squished left column.
+
+**Root Cause**: Two structural problems in `templates/index.html` lines 11–25:
+1. The `</div>` that closes `#market-performance-container` was placed **before** the `<div class="widget-chart"><canvas id="priceChart"></canvas></div>`. So the chart was a sibling of the card, not a child of it — there was no width-constrained parent for the canvas.
+2. `.dashboard-grid-2col` (`grid-template-columns: 2fr 1fr`) ended up with **three** direct children: (a) empty market-performance card, (b) `widget-chart` wrapper, (c) Watch List card. The chart wrapper became a 3rd grid item placed by `grid-auto-flow`, breaking the `2fr / 1fr` intent. With `responsive: true` + `maintainAspectRatio: false` on Chart.js, the canvas then expanded to fill its intrinsic width and overflowed past the page's right edge.
+
+**Fix Applied** (`templates/index.html`):
+- Moved the closing `</div>` of `#market-performance-container` to **after** the `<div class="widget-chart">…</div>` line. The chart is now nested inside the card.
+- Card + chart together form one grid item (the `2fr` column); Watch List is the second grid item (the `1fr` column).
+
+**Why This Works**:
+- `.widget-chart` has `position: relative; height: 300px`. Now that it's inside `.card` (which sits inside the `2fr` grid track), the canvas's parent has a fixed width and the Chart.js `responsive: true` + `maintainAspectRatio: false` correctly resizes the chart to fit the column.
+- The grid now has exactly two children, so `grid-template-columns: 2fr 1fr` produces the intended Market Performance (wide) / Watch List (narrow) layout.
+
+**Status**: Fixed (2026-09-09)

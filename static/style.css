@@ -176,8 +176,20 @@ table.data.small thead th, table.data.small tbody td { padding:8px 12px; }
    =================================================================== */
 @media (max-width: 1280px) { .content { padding:24px 20px; } .stat-grid { grid-template-columns:repeat(2,1fr); } .kv-grid { grid-template-columns:repeat(2,1fr); } }
 @media (max-width: 1024px) { .sidebar { display:none; } .navlinks { display:none; } .topnav { padding:0 14px; } .content { padding:20px 16px; } }
-@media (max-width: 768px) { .search { display:none; } .topnav { gap:8px; padding:0 12px; } .logo { font-size:15px; } .page-head h1 { font-size:22px; } .stat-grid { grid-template-columns:1fr; } .kv-grid { grid-template-columns:1fr 1fr; } .filters { flex-direction:column; align-items:stretch; } .field { min-width:0; width:100%; } .field select, .field input { min-width:0; width:100%; } .pagination { flex-direction:column; align-items:stretch; gap:6px; } .pagination > * { text-align:center; } .fund-filters { padding:12px; } .fund-filters .btn { flex:1 1 calc(50% - 5px); } .tooltip-btn::after, .tooltip-btn::before { display:none; } }
-@media (max-width: 480px) { .kv-grid { grid-template-columns:1fr; } table.data thead th, table.data tbody td { padding:10px 12px; } }
+@media (max-width: 768px) { 
+    .search { display:none; } .topnav { gap:8px; padding:0 12px; } .logo { font-size:15px; } .page-head h1 { font-size:22px; } 
+    .stat-grid { grid-template-columns:repeat(2,1fr); } .kv-grid { grid-template-columns:1fr 1fr; } 
+    #indices-container { grid-template-columns:repeat(2,1fr) !important; }
+    .gainers-lossers-grid { grid-template-columns:1fr !important; }
+    .filters { flex-direction:column; align-items:stretch; } .field { min-width:0; width:100%; } .field select, .field input { min-width:0; width:100%; } 
+    .pagination { flex-direction:column; align-items:stretch; gap:6px; } .pagination > * { text-align:center; } 
+    .fund-filters { padding:12px; } .fund-filters .btn { flex:1 1 calc(50% - 5px); } .tooltip-btn::after, .tooltip-btn::before { display:none; } 
+}
+@media (max-width: 480px) { 
+    .kv-grid { grid-template-columns:1fr; } table.data thead th, table.data tbody td { padding:10px 12px; } 
+    #indices-container { grid-template-columns:1fr !important; }
+    .stat-grid { grid-template-columns:1fr !important; }
+}
 .card h2 + table.data { margin-top:4px; }
 .error-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
 .kv .v { font-size:18px; font-weight:600; color:var(--foreground); }
@@ -191,3 +203,167 @@ table.data td.price { font-family:'JetBrains Mono',monospace; font-variant-numer
 table.data .badge { display:inline-block; padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:600; background:var(--primary-soft); color:var(--primary); text-transform:uppercase; letter-spacing:0.04em; }
 table.data td .name { font-size:11px; color:var(--muted-foreground); font-family:'JetBrains Mono',monospace; margin-top:2px; }
 .fund-filters { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-sm); }
+/* ===================================================================
+   Dashboard Widget Grid Layouts
+   =================================================================== */
+.dashboard-grid-2col { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+.dashboard-grid-indices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.dashboard-grid-1-1 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.dashboard-section { margin-top: 24px; }
+.widget-chart { position: relative; height: 300px; }
+.skeleton-card-loading { min-height: 120px; }
+
+/* ===================================================================
+   Skeleton Loaders
+   =================================================================== */
+
+/* ===================================================================
+   Skeleton Loaders
+   =================================================================== */
+.skeleton {
+    background: linear-gradient(90deg, var(--skeleton-from, var(--muted)) 25%, var(--skeleton-to, var(--card-soft)) 50%, var(--skeleton-from, var(--muted)) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: var(--radius);
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Skeleton dimensions matching final components */
+.skeleton-stat {
+    height: 80px;
+    border-radius: var(--radius);
+}
+.skeleton-stat-label {
+    height: 14px;
+    width: 60%;
+    margin-bottom: 8px;
+}
+.skeleton-stat-value {
+    height: 28px;
+    width: 40%;
+}
+.skeleton-card {
+    padding: 20px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+}
+.skeleton-chart {
+    height: 300px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+}
+.skeleton-row {
+    height: 48px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+}
+.skeleton-chip {
+    height: 32px;
+    width: 100px;
+    border-radius: 9999px;
+    display: inline-block;
+    margin-right: 8px;
+    margin-bottom: 8px;
+}
+.skeleton-header {
+    height: 24px;
+    width: 40%;
+    margin-bottom: 16px;
+}
+.skeleton-text {
+    height: 14px;
+    width: 80%;
+    margin-bottom: 6px;
+}
+
+/* Fade transition when content replaces skeleton */
+.widget-container {
+    transition: opacity 0.3s ease;
+}
+.widget-container.loading {
+    opacity: 0;
+}
+.widget-container.loaded {
+    opacity: 1;
+}
+
+/* Loading indicator */
+.widget-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+}
+
+/* Error state */
+.widget-error {
+    padding: 20px;
+    text-align: center;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+}
+.widget-error .retry-btn {
+    margin-top: 10px;
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 13px;
+}
+.widget-error .retry-btn:hover {
+    background: var(--muted);
+}
+
+/* Empty state */
+.widget-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--muted-foreground);
+    font-size: 13px;
+}
+
+/* Stale data indicator */
+.stale-indicator {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    margin-top: 8px;
+    font-style: italic;
+}
+
+/* Dashboard widget cards in grids - remove conflicting margin-bottom */
+#indices-container > .card,
+#gainers-container > .card,
+#losers-container > .card {
+    margin-bottom: 0;
+}
+
+/* Sector Performance - horizontal chips row */
+#sector-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 0;
+}
+
+#sector-performance-container {
+    margin-top: 24px;
+}
+
+/* Top Stocks by Index section wrapper */
+#indices-section {
+    margin-top: 24px;
+}
+
+}
