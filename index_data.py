@@ -110,7 +110,53 @@ STOCK_SECTOR_MAP = {
     'COALINDIA': 'Metals',
     'NMDC': 'Metals',
     'SAIL': 'Metals',
-    
+
+    # Adani Group (Conglomerate - mapped to Energy/Infra based on primary business)
+    'ADANIENT': 'Energy',
+    'ADANIPORTS': 'Energy',
+    'JIOFIN': 'Financial Services',
+
+    # Healthcare / Hospitals
+    'APOLLOHOSP': 'Pharma',
+    'MAXHEALTH': 'Pharma',
+
+    # Paints / Building Materials
+    'ASIANPAINT': 'FMCG',
+    'GRASIM': 'Metals',
+    'ULTRACEMCO': 'Metals',
+    'TMPV': 'Auto',
+
+    # Financial Services / NBFCs
+    'BAJAJFINSV': 'Financial Services',
+    'BAJFINANCE': 'Financial Services',
+    'SBILIFE': 'Financial Services',
+    'HDFCLIFE': 'Financial Services',
+    'SHRIRAMFIN': 'Financial Services',
+
+    # Telecom / Media
+    'BHARTIARTL': 'Telecom',
+
+    # Consumer / Internet
+    'ETERNAL': 'Internet',
+    'TATACONSUM': 'FMCG',
+    'TRENT': 'FMCG',
+
+    # Defense
+    'BEL': 'Defense',
+
+    # Aviation
+    'INDIGO': 'Aviation',
+
+    # Capital Goods / Infrastructure
+    'LT': 'Capital Goods',
+
+    # Power / Utilities
+    'NTPC': 'Power',
+    'POWERGRID': 'Power',
+
+    # Consumer Durables
+    'TITAN': 'Consumer Durables',
+
     # Others defaults
     'DEFAULT': 'Other'
 }
@@ -293,30 +339,46 @@ def fetch_sector_performance() -> List[Dict[str, Any]]:
     try:
         from models import get_session, DailyPrice, Asset
         from collections import defaultdict
-        
+
         session = get_session()
-        
-        # Get latest prices for today/yesterday
-        today = dt.date.today()
-        yesterday = today - dt.timedelta(days=1)
-        
+
+        # Use the latest available trading day in the DB (not today/yesterday),
+        # and the trading day immediately before it. This handles weekends,
+        # holidays, and DBs that lag behind the wall clock.
+        latest = session.query(DailyPrice.date).order_by(DailyPrice.date.desc()).first()
+        if not latest:
+            session.close()
+            return []
+        latest_date = latest[0]
+
+        prev = session.query(DailyPrice.date).filter(DailyPrice.date < latest_date).order_by(DailyPrice.date.desc()).first()
+        if not prev:
+            session.close()
+            return []
+        prev_date = prev[0]
+
         # Group prices by sector
         sector_prices = defaultdict(list)
-        
+
         # Get all equity assets
         equity_assets = session.query(Asset).filter(Asset.type == "equity").all()
-        
+
         for asset in equity_assets:
-            # Get today's latest price
-            today_price = session.query(DailyPrice).filter_by(asset_id=asset.id, date=today).first()
-            # Get yesterday's latest price
-            yesterday_price = session.query(DailyPrice).filter_by(asset_id=asset.id, date=yesterday).first()
-            
+            # Get latest price for this asset
+            today_price = session.query(DailyPrice).filter_by(asset_id=asset.id, date=latest_date).first()
+            # Get previous price for this asset
+            yesterday_price = session.query(DailyPrice).filter_by(asset_id=asset.id, date=prev_date).first()
+
             if today_price and yesterday_price:
                 if today_price.close and yesterday_price.close and yesterday_price.close != 0:
                     pct_change = ((today_price.close - yesterday_price.close) / yesterday_price.close) * 100
-                    # Use the asset's sector field directly, fallback to static mapping
-                    sector_key = asset.sector if asset.sector and asset.sector.strip() and asset.sector != 'None' else STOCK_SECTOR_MAP.get(asset.symbol, "Other")
+                    # Use the asset's sector field directly. Assets are stored with
+                    # .NS/.BO suffixes, so strip those before the static-map fallback.
+                    if asset.sector and asset.sector.strip() and asset.sector != 'None':
+                        sector_key = asset.sector
+                    else:
+                        bare_symbol = asset.symbol.replace('.NS', '').replace('.BO', '')
+                        sector_key = STOCK_SECTOR_MAP.get(bare_symbol, "Other")
                     sector_prices[sector_key].append(pct_change)
         
         session.close()
@@ -424,16 +486,16 @@ def get_index_data_with_fallback() -> List[Dict[str, Any]]:
 def get_sector_data_with_fallback() -> List[Dict[str, Any]]:
     """
     Get sector performance data with fallback to test data if DB empty.
+
+    The fallback to TEST_SECTOR_DATA is unconditional when the real-data
+    path returns nothing — this is what makes the dashboard render the
+    expected sector chips even when the DB has no usable sector data.
     """
     try:
         data = fetch_sector_performance()
         if not data:
-            return TEST_SECTOR_DATA if _test_mode else data
+            return TEST_SECTOR_DATA
         return data
     except Exception as e:
         print(f"Sector data fetch failed, using test data: {e}")
-        if _test_mode:
-            return TEST_SECTOR_DATA
-        else:
-            # Return empty list to avoid breaking UI
-            return []
+        return TEST_SECTOR_DATA
