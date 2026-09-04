@@ -237,3 +237,21 @@
 - 45 suggestions are now being generated correctly for the most recent date
 
 **Status**: Fixed (2026-08-30)
+
+## 12. Dashboard Percentages All 0.0% (Fixed) — 2026-09-04
+
+**Description**: All "Top Stocks by Index" cards (index headers and constituent stocks) showed `0.0%` change chips. Sectors showed nothing. Real prices were correct; only percentage was wrong.
+
+**Root Cause**: `YFinanceSource.fetch_latest()` returned only the latest-day `OHLCV` (no previous close), and `index_data.py` hardcoded `"changePct": 0.0` for indices and never assigned it for stocks. The TODO comments in `_fetch_single_index_data` and `_fetch_stock_details` flagged this.
+
+**Fix Applied**:
+1. Added optional `prev_close: Optional[float] = None` to `OHLCV` dataclass (`data_sources.py`).
+2. `YFinanceSource.fetch_latest()` now reads `hist.iloc[-2]["Close"]` when `len(hist) >= 2` and stores it on the returned `OHLCV`. No second API call needed.
+3. Added `_pct_change(current, previous)` helper in `index_data.py` that returns `0.0` for None/zero/non-finite inputs (no NaN/Inf in UI).
+4. `_fetch_single_index_data()` and `_fetch_stock_details()` now call `_pct_change` against `result.prev_close`.
+
+**Why It's Safe**: NSE and MF sources leave `prev_close=None`; both call sites tolerate that and fall back to `0.0%`. `getattr(..., "prev_close", None)` is used for forward-compat with older `OHLCV` instances if any are cached.
+
+**Verification**: Live data sample — NIFTY 50 +0.31%, SENSEX +0.76%, NIFTY BANK +0.33%, NIFTY IT -0.09%, RELIANCE +2.13%, HDFCBANK +1.20%, ICICIBANK +0.14%, TCS -0.12%, WIPRO +1.25%.
+
+**Status**: Fixed (2026-09-04)

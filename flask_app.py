@@ -124,7 +124,21 @@ def index():
             'total_suggestions': session.query(Suggestion).count(),
             'latest_date': session.query(DailyPrice.date).order_by(DailyPrice.date.desc()).first()[0] if session.query(DailyPrice).first() else None
         }
-        return render_template('index.html', stats=stats, active='home')
+        
+        # Fetch real-time index data for dashboard
+        try:
+            from index_data import get_index_data_with_fallback, get_sector_data_with_fallback, set_test_mode
+            # Enable test mode to use test data if real data unavailable
+            set_test_mode(False)
+            indices_data = get_index_data_with_fallback()
+            sectors_data = get_sector_data_with_fallback()
+        except Exception as e:
+            print(f"Error fetching real-time data: {e}")
+            # Fallback to demo data structure
+            indices_data = DEMO_DATA.get('indices', [])
+            sectors_data = DEMO_DATA.get('sectors', [])
+        
+        return render_template('index.html', stats=stats, indices_data=indices_data, sectors_data=sectors_data, active='home')
     finally:
         session.close()
 

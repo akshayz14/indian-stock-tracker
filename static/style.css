@@ -95,11 +95,15 @@ table.data td.empty { text-align:center; color:var(--muted-foreground); padding:
 /* ===================================================================
    Change chips, sector chips, stock cards, timeframe group
    =================================================================== */
-.change-chip { font-size:11px; font-weight:600; padding:3px 8px; border-radius:9999px; display:inline-block; font-variant-numeric:tabular-nums; }
+.change-chip { font-size:11px; font-weight:600; padding:3px 8px; border-radius:9999px; display:inline-flex; align-items:center; gap:4px; font-variant-numeric:tabular-nums; }
+.change-chip.up::before { content:"\25B2"; font-size:8px; line-height:1; }
+.change-chip.down::before { content:"\25BC"; font-size:8px; line-height:1; }
 .change-chip.up { background:var(--up-soft); color:var(--up); }
 .change-chip.down { background:var(--down-soft); color:var(--down); }
 .change-chip.neutral { background:var(--muted); color:var(--muted-foreground); }
 .sector-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:8px; font-size:12px; font-weight:500; border:1px solid var(--border); }
+.sector-chip.up::before { content:"\25B2"; font-size:8px; line-height:1; }
+.sector-chip.down::before { content:"\25BC"; font-size:8px; line-height:1; }
 .sector-chip.up { background:var(--up-soft); color:var(--up); border-color:transparent; }
 .sector-chip.down { background:var(--down-soft); color:var(--down); border-color:transparent; }
 .sector-chip .pct { font-family:'JetBrains Mono',monospace; font-weight:600; }

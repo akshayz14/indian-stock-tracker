@@ -98,4 +98,14 @@
 - Test CLI and Web UI functionality end-to-end
 - Verify mutual fund data appears in web UI at `/mutual-funds`
 - Replace demo data with real stock API data integration
+## Dashboard Real-Data Integration (2026-09-04)
+- `index_data.py` module created: Yahoo Finance integration for 4 indices (NIFTY 50, NIFTY BANK, SENSEX, NIFTY IT) via `^NSEI`, `^NSEBANK`, `^BSESN`, `^CNXIT`.
+- `INDEX_CONFIG` covers 4 indices × 3 constituent stocks each; `STOCK_SECTOR_MAP` static fallback (~50 stocks).
+- 1-hour in-memory cache (`CACHE_DURATION = 3600`), keyed `index_{symbol}` and `sector_performance`.
+- `flask_app.py` `index()` route calls `get_index_data_with_fallback()` / `get_sector_data_with_fallback()` with `_test_mode=False`, passing `indices_data` + `sectors_data` to template.
+- `templates/index.html` "Top Stocks by Index" and "Sector Performance" sections now loop over real data.
+- **Fixed (2026-09-04): all dashboard percentages showed 0.0%.** Root cause: `changePct` was hardcoded to `0.0` in both `_fetch_single_index_data` and `_fetch_stock_details`, and `YFinanceSource.fetch_latest()` returned only the latest row (no previous close). Fix: added optional `prev_close` field to `OHLCV` dataclass, populated by `YFinanceSource` from `hist.iloc[-2]["Close"]` when ≥2 rows exist, and added `_pct_change()` helper used in both index and stock dicts. Verified live: NIFTY 50 +0.31%, RELIANCE +2.13%, TCS -0.12%, HDFCBANK +1.20%, etc.
+- **Remaining**: `Market Performance`, `Watch List`, `Top Gainers/Losers` still use `demo_data` (intentional, step-by-step). `_test_mode` flag still present but set to `False` in route; `TEST_*_DATA` constants retained for dev fallback.
+
+- **UI: green up / red down arrows on percentage chips (2026-09-04)** — arrows are injected via CSS `::before` pseudo-elements on `.change-chip.up` (▲ U+25B2) and `.change-chip.down` (▼ U+25BC), `font-size:8px`, `gap:4px` flex layout. Same pattern applied to `.sector-chip`. Zero change now renders `neutral` (no arrow, muted color) instead of `up`. All four chip sites in `templates/index.html` (Watch List, index header, stock, sector) switched from `>= 0` to `> 0 / < 0 / else neutral`. Top Gainers `+` sign removed since the arrow replaces it.
 - Add unit tests for dashboard rendering and UI components

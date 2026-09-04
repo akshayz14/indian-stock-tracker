@@ -25,7 +25,7 @@
 <a href="/stocks/{{s.symbol}}" style="display:block;padding:8px;border-radius:8px;border:1px solid var(--border);text-decoration:none;">
 <div style="display:flex;justify-content:space-between;align-items:center;">
 <div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">{{s.sector}}</span></div>
-<span class="change-chip {% if s.changePct>=0 %}up{% else %}down{% endif %}">{{s.changePct|round(2)}}%</span>
+<span class="change-chip {% if s.changePct>0 %}up{% elif s.changePct<0 %}down{% else %}neutral{% endif %}">{{s.changePct|round(2)}}%</span>
 </div>
 <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin-top:4px;">{{s.price|round(2)}}</div>
 </a>
@@ -36,46 +36,32 @@
 <div style="margin-top:32px;">
 <h2 style="font-size:18px;margin-bottom:16px;">Top Stocks by Index</h2>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
+{% for index in indices_data %}
 <div class="card">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-<h2 style="margin-top:0;font-size:18px;">NIFTY 50</h2>
-<span class="change-chip up">{{demo_data.indices[0].changePct|round(2)}}%</span>
+<h2 style="margin-top:0;font-size:18px;">{{ index.name }}</h2>
+<span class="change-chip {% if index.changePct > 0 %}up{% elif index.changePct < 0 %}down{% else %}neutral{% endif %}">{{ index.changePct|round(2) }}%</span>
 </div>
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-{% for s in demo_data.stocks[:3] %}
+{% for stock in index.stocks %}
 <div class="stock-card" style="padding:12px;">
-<div style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</div>
-<div style="font-size:10px;color:var(--muted-foreground);">{{s.sector}}</div>
-<div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin:6px 0;">{{s.price|round(2)}}</div>
-<span class="change-chip {% if s.changePct>=0 %}up{% else %}down{% endif %}">{{s.changePct|round(2)}}%</span>
+<div style="font-size:11px;font-weight:700;text-transform:uppercase;">{{ stock.symbol }}</div>
+<div style="font-size:10px;color:var(--muted-foreground);">{{ stock.sector }}</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin:6px 0;">{{ stock.price|round(2) }}</div>
+<span class="change-chip {% if stock.changePct > 0 %}up{% elif stock.changePct < 0 %}down{% else %}neutral{% endif %}">{{ stock.changePct|round(2) }}%</span>
 </div>
 {% endfor %}
 </div>
 </div>
-<div class="card">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-<h2 style="margin-top:0;font-size:18px;">NIFTY BANK</h2>
-<span class="change-chip {% if demo_data.indices[1].changePct>=0 %}up{% else %}down{% endif %}">{{demo_data.indices[1].changePct|round(2)}}%</span>
-</div>
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-{% for s in demo_data.stocks[3:6] %}
-<div class="stock-card" style="padding:12px;">
-<div style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</div>
-<div style="font-size:10px;color:var(--muted-foreground);">{{s.sector}}</div>
-<div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin:6px 0;">{{s.price|round(2)}}</div>
-<span class="change-chip {% if s.changePct>=0 %}up{% else %}down{% endif %}">{{s.changePct|round(2)}}%</span>
-</div>
 {% endfor %}
-</div>
-</div>
 </div>
 
 <div class="card" style="margin-top:32px;">
 <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);margin-bottom:12px;">Sector Performance</h3>
 <div style="display:flex;flex-wrap:wrap;gap:8px;">
-{% for sector in demo_data.sectors %}
-<div class="sector-chip {% if sector.pct>=0 %}up{% else %}down{% endif %}">
-<span class="name">{{sector.name}}</span><span class="pct">{{sector.pct|round(2)}}%</span>
+{% for sector in sectors_data %}
+<div class="sector-chip {% if sector.pct > 0 %}up{% elif sector.pct < 0 %}down{% else %}neutral{% endif %}">
+<span class="name">{{ sector.name }}</span><span class="pct">{{ sector.pct|round(2) }}%</span>
 </div>
 {% endfor %}
 </div>
@@ -87,7 +73,7 @@
 {% for s in demo_data.gainers %}
 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid var(--border);">
 <div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">{{s.name}}</span></div>
-<span class="change-chip up">+{{s.changePct|round(2)}}%</span>
+<span class="change-chip up">{{s.changePct|round(2)}}%</span>
 </div>
 {% endfor %}
 </div>

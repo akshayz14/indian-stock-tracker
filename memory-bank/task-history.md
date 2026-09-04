@@ -98,6 +98,12 @@
 
 **Key Changes**:
 - Removed hardcoded `get_all_schemes()` function
+- Added real data integration for dashboard "Top Stocks by Index" section (2026-09-04)
+  - Fetches real-time data for NIFTY 50, NIFTY BANK, SENSEX, and NIFTY IT indices
+  - Displays constituent stocks from each index in configurable grid layout
+  - Falls back to demo data when real data sources unavailable
+  - Includes sector performance calculation from real stock data
+  - Designed for future user customization of displayed indices
 - Added `search_schemes()` with `plan="Direct"` and `option="Growth"` query parameters
 - Added `fetch_all_schemes_for_category()` with pagination support for all categories
 - Added `fetch_and_filter_direct_growth()` to filter API results
