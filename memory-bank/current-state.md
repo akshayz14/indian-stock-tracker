@@ -12,12 +12,15 @@
   - `flask_app.py` updated to import `get_dashboard_data_with_fallback` and modified `inject_demo_data` context processor to replace `DEMO_DATA` gainers/losers with real data.
   - `/gainers-losers` route already uses live NSE data (unchanged).
   - Fallback to `DEMO_DATA_FALLBACK` if NSE API is unavailable.
-- Dashboard renders successfully at `/` with all 15 UI component checks passing
-  - Fixed index.html template slicing issue (changed `|slice(6,12)` to `demo_data.stocks[3:6]` for proper list slicing)
-  - Dashboard renders successfully at `/` with all 15 UI component checks passing
-  - Removed `if len(records) >= limit: break` check that stopped collection early
-  - Added `return records[-limit:]` to take the most recent records
-  - This allows `detect_and_store_holidays()` to correctly identify missing data instead of incorrectly marking recent weekdays as holidays
+- **NIFTY 50 Market Performance Real-Data Integration (2026-09-09)** — `nifty_data_service.py` created with cache-first strategy using yfinance:
+  - New module `nifty_data_service.py` with `get_nifty_data()` function, Cache-first strategy using SQLite
+  - Supports ranges: 1D (5m interval, 5 min TTL), 1W (15m interval, 15 min TTL), 1M/3M/1Y (1d interval, 1-2 hour TTL)
+  - Database caching with `MarketIndexPrice` model, deduplication via unique index (symbol, timestamp, interval)
+  - Fallback to stale cache data when yfinance unavailable
+  - Added Flask API endpoint `/api/market-performance` that returns JSON with chart-ready data
+  - Frontend template updated to use `/api/market-performance?range=` + range parameter
+  - Timezone handling: Converts UTC timestamps to IST (+5:30) for display
+  - **Verified**: Market Performance graph now uses REAL NIFTY 50 data from Yahoo Finance instead of mock data
 - Fixed `run_daily.py` to generate suggestions for ALL dates in the 60-day window, not just the most recent date
   - Now queries all distinct dates from the last 60 days and calls `generate_suggestions()` for each date
   - Collects top 50 suggestions per day and sorts by score globally to show the best opportunities across the entire window

@@ -9,6 +9,7 @@ from nsetools import Nse  # Import NSE class
 import requests
 import json
 import os
+import math
 from datetime import datetime, timedelta, date
 from stock_search_service import StockSearchService
 from real_data_service import get_dashboard_data_with_fallback, get_top_gainers_losers, DEMO_DATA_FALLBACK
@@ -290,12 +291,17 @@ def api_dashboard_watchlist():
                     changePct = 0
 
                 asset = asset_map.get(orig_symbol)
+                # Sanitize NaN/Inf values — browsers' strict JSON.parse fails on NaN
+                def _safe(v):
+                    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                        return 0
+                    return v
                 result.append({
                     'symbol': orig_symbol.upper(),
                     'name': asset.name if asset else orig_symbol,
-                    'price': round(price, 2),
-                    'change': round(change, 2),
-                    'changePct': round(changePct, 2),
+                    'price': _safe(round(price, 2)),
+                    'change': _safe(round(change, 2)),
+                    'changePct': _safe(round(changePct, 2)),
                     'sector': asset.sector if asset else 'N/A'
                 })
             except Exception as e:
@@ -384,6 +390,40 @@ def api_dashboard_stats():
         'buy_signals': buy_signals_count,
         'top_sector': top_sector,
     })
+
+@app.route('/api/market-performance')
+def api_market_performance():
+    """Async endpoint for NIFTY 50 market performance chart data."""
+    try:
+        from nifty_data_service import get_nifty_data
+
+        range_param = request.args.get('range', '1D').upper()
+
+        # Validate range parameter
+        valid_ranges = ['1D', '1W', '1M', '3M', '1Y']
+        if range_param not in valid_ranges:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid range parameter. Supported: {valid_ranges}',
+                'data': [],
+            }), 400
+
+        result = get_nifty_data(range_param)
+
+        # Return the result with proper status
+        if result.get('status') == 'success':
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+
+    except Exception as e:
+        logger.error(f"Market performance API error: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Unable to fetch market performance data.',
+            'error': str(e),
+            'data': [],
+        }), 500
 
 
 @app.route('/stocks')

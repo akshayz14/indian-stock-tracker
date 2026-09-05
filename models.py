@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, create_engine, Boolean
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, create_engine, Boolean
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 Base = declarative_base()
@@ -87,6 +87,20 @@ class MutualFundSuggestion(Base):
     
     asset = relationship('MutualFundAsset', back_populates='suggestions')
 
+
+class MarketIndexPrice(Base):
+    __tablename__ = 'market_index_prices'
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    interval = Column(String, nullable=False)
+    open = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    close = Column(Float)
+    volume = Column(Float)
+    created_at = Column(String)
+
 def get_engine(db_path='sqlite:///stocks.db'):
     return create_engine(db_path, echo=False)
 
@@ -114,6 +128,21 @@ def _add_missing_columns(engine):
         if inspect(engine).has_table('daily_prices') else set()
     dp_columns = {'is_holiday': 'BOOLEAN DEFAULT 0'}
 
+    # MarketIndexPrice model columns (for new table)
+    mip_existing = set(c['name'] for c in inspect(engine).get_columns('market_index_prices')) \
+        if inspect(engine).has_table('market_index_prices') else set()
+    mip_columns = {
+        'symbol': 'TEXT NOT NULL',
+        'timestamp': 'DATE NOT NULL',
+        'interval': 'TEXT NOT NULL',
+        'open': 'REAL',
+        'high': 'REAL',
+        'low': 'REAL',
+        'close': 'REAL',
+        'volume': 'REAL',
+        'created_at': 'TEXT',
+    }
+
     with engine.begin() as conn:
         for col_name, col_type in asset_columns.items():
             if col_name not in asset_existing:
@@ -121,6 +150,25 @@ def _add_missing_columns(engine):
         for col_name, col_type in dp_columns.items():
             if col_name not in dp_existing:
                 conn.execute(text(f'ALTER TABLE daily_prices ADD COLUMN "{col_name}" {col_type}'))
+        for col_name, col_type in mip_columns.items():
+            if col_name not in mip_existing:
+                conn.execute(text(f'ALTER TABLE market_index_prices ADD COLUMN "{col_name}" {col_type}'))
+        
+        # Add unique index for MarketIndexPrice table if it doesn't exist
+        if inspect(engine).has_table('market_index_prices'):
+            # Check if unique index already exists
+            indexes = inspect(engine).get_indexes('market_index_prices')
+            unique_exists = any(idx['unique'] and set(idx['column_names']) == {'symbol', 'timestamp', 'interval'} 
+                              for idx in indexes)
+            if not unique_exists:
+                try:
+                    conn.execute(text('''
+                        CREATE UNIQUE INDEX idx_market_index_prices_unique 
+                        ON market_index_prices (symbol, timestamp, interval)
+                    '''))
+                except Exception as e:
+                    # Index might already exist or there might be a race condition
+                    pass
 
 def init_db(db_version: str = '2.0'):
     """Initialize the database with schema version tracking.

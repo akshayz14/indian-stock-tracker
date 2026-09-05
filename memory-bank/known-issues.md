@@ -292,6 +292,29 @@
 
 **Status**: Fixed (2026-09-09)
 
+## 15. Skeleton Placeholder Not Visible for "Top Stocks by Index" Grid (Fixed) — 2026-09-09
+
+**Description:** The skeleton loading placeholders were not appearing for the "Top Stocks by Index" section. The `showLoading()` and `showLoaded()` functions rely on finding a `.widget-container` ancestor to toggle the `loading`/`loaded` CSS classes. However, the `#indices-container` element was missing the `widget-container` class on its parent.
+
+**Root Cause:** The HTML structure for "Top Stocks by Index" was:
+```html
+<div id="indices-section" class="dashboard-section">
+  <h2>Top Stocks by Index</h2>
+  <div class="dashboard-grid-indices" id="indices-container">
+  </div>
+</div>
+```
+The parent `#indices-section` has class `dashboard-section` but NOT `widget-container`, unlike all other dashboard sections (watchlist, gainers, losers, sector-performance).
+
+**Fix Applied:** Added `widget-container` class to `#indices-container` in `templates/index.html`:
+```html
+<div class="dashboard-grid-indices widget-container" id="indices-container">
+```
+
+**Why This Works:** Now `el.closest('.widget-container')` in `showLoading()`/`showLoaded()` correctly finds the ancestor, enabling the loading state mechanism. The CSS rule `.widget-container.loading { opacity: 0 }` will hide content during loading while skeletons are shown, and `.widget-container.loaded { opacity: 1 }` will fade in the real data.
+
+**Status:** Fixed (2026-09-09)
+
 ## 14. Mobile Navigation Buttons Not Showing (Fixed) — 2026-09-09
 
 **Description**: On screens ≤1024px, both `.sidebar` and `.navlinks` were hidden with `display:none`, leaving mobile users with no way to navigate (no hamburger menu replacement). The topnav showed only the logo, theme toggle, and avatar, so the seven navigation buttons (Dashboard, Stocks, Prices, etc.) were inaccessible.

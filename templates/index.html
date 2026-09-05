@@ -30,7 +30,7 @@
 </div>
 <div id="indices-section" class="dashboard-section">
 <h2 style="font-size:18px;margin-bottom:16px;">Top Stocks by Index</h2>
-<div class="dashboard-grid-indices" id="indices-container">
+<div class="dashboard-grid-indices widget-container" id="indices-container">
 </div>
 </div>
 
@@ -245,23 +245,24 @@
         var gradient = ctx.createLinearGradient(0, 0, 0, 300);
         gradient.addColorStop(0, 'rgba(37,99,235,0.3)');
         gradient.addColorStop(1, 'rgba(37,99,235,0.0)');
-        // Fallback demo series used when no real intraday data is available.
-        var demoLabels = ['9:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30'];
-        var demoData = [24750,24780,24820,24800,24850,24830,24870,24860,24890,24920,24900,24940,24960];
-        fetchJSON('/api/dashboard/chart-data').then(function(data) {
-            if (data.status === 'success' || data.status === 'partial') {
-                // Prefer the NIFTY 50 index value for the chart line when available.
-                var labels = demoLabels;
-                var series = demoData;
-                var nifty = (data.data || []).find(function(idx) {
-                    return (idx.name || '').toUpperCase() === 'NIFTY 50';
+        var activeBtn = document.querySelector('.timeframe-group .btn-secondary.active');
+        var range = (activeBtn ? activeBtn.getAttribute('data-timeframe') : '1D') || '1D';
+        fetchJSON('/api/market-performance?range=' + range).then(function(response) {
+            if (response.status === 'success' || response.status === 'partial') {
+                var chartPoints = (response.data || []).map(function(point) {
+                    return { x: point.timestamp, y: point.value };
                 });
-                if (nifty && nifty.value) {
-                    var base = nifty.value;
-                    series = demoLabels.map(function(_, i) {
-                        return Math.round(base - 60 + i * 10);
-                    });
-                }
+                var labels = chartPoints.map(function(d) {
+                    try {
+                        var dt = new Date(d.x);
+                        var hours = dt.getHours().toString().padStart(2, '0');
+                        var mins = dt.getMinutes().toString().padStart(2, '0');
+                        return hours + ':' + mins;
+                    } catch(e) {
+                        return d.x;
+                    }
+                });
+                var series = chartPoints.map(function(d) { return d.y; });
                 canvas.chartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
