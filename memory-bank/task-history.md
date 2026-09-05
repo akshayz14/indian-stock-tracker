@@ -1,25 +1,88 @@
 # Task History
 
-## 2026-09-03: Fix Missing Columns in Legacy Databases - COMPLETED
+## 2026-09-03: Schema Version Tracking with Auto-Migration - COMPLETED
+
+**Type:** Bug Fix / Enhancement
+**Status:** Completed
+
+**Goal:** Fix `sqlalchemy.OperationalError: no such column` errors that occur when merging with old production databases that lack the `is_holiday` or `latest_nav_date` columns, and implement systematic schema version tracking (v2.0) to prevent future occurrences.
+
+**Problem:** The `_add_missing_columns()` function in `models.py` was only called from `init_db()`. Many code paths (like `cli.py` and `flask_app.py`) use `get_session()` directly without calling `init_db()` first. Schema version tracking was not centralized.
+
+**Fix Applied:**
+1. Added `schema_version` table to both `stocks.db` and `mutual_funds.db`
+2. Added `_get_schema_version()` and `_set_schema_version()` functions in `models.py`
+3. Modified `init_db(db_version='2.0')` to accept and track schema version
+4. Updated `get_session()` and `get_mutual_fund_session()` to auto-create tables and run migrations
+5. Updated `run.py` and `run_daily.py` to pass `db_version='2.0'`
+
+**Files Changed:**
+- `models.py` - Added version tracking, updated session helpers
+- `run.py` - Pass db_version to init_db
+- `run_daily.py` - Pass db_version to init_db
+
+**Status:** Completed (2026-09-03)
+
+## 2026-09-09: Mobile Navigation Buttons Not Showing - COMPLETED
 
 **Type:** Bug Fix
 **Status:** Completed
 
-**Goal:** Fix `sqlalchemy.OperationalError: no such column: daily_prices.is_holiday` that occurs when merging with an old production database that lacks the `is_holiday` column.
+**Goal:** Restore mobile access to all navigation buttons (Dashboard, Stocks, Prices, Suggestions, Gainers & Losers, Mutual Funds, Search) after recent UI changes hid the sidebar and topnav links on small screens.
 
-**Problem:** The `_add_missing_columns()` function in `models.py` was designed to handle schema migrations, but it was only called from `init_db()`. Many code paths (like `cli.py` and `flask_app.py`) use `get_session()` directly without calling `init_db()` first, so the migration never happened.
+**Problem:** On screens ≤1024px, `static/style.css:178` hid both `.sidebar` and `.navlinks` with `display:none` but introduced no hamburger menu or alternative navigation. Mobile users were stuck on a page with only the logo, theme toggle, and avatar visible.
 
 **Fix Applied:**
-1. Modified `get_session()` in `models.py` to automatically call `Base.metadata.create_all(engine)` and `_add_missing_columns(engine)` before creating a session.
-2. Modified `get_mutual_fund_session()` in `models.py` to automatically call `Base.metadata.create_all(engine)` and `_add_missing_mutual_fund_columns(engine)` before creating a session.
+- `templates/base.html`: Added a hamburger toggle button (`<button id="nav-toggle">` with three-line CSS icon) to the topnav, and a slide-in drawer (`<div class="mobile-nav">`) after `</nav>` containing all 7 nav links + a search input, plus a small IIFE script handling open/close/overlay-click/link-click/ESC.
+- `static/style.css`: Added `.nav-toggle` (hidden by default, shown at `max-width: 1024px`), `.mobile-nav`, `.mobile-nav-overlay`, `.mobile-nav-panel`, `.mobile-nav-header`, `.nav-close`, `.mobile-nav-links`, `.mobile-nav-search` styles. Drawer slides in from the left using existing CSS variables.
 
 **Files Changed:**
-- `models.py` — Updated `get_session()` and `get_mutual_fund_session()` to auto-migrate schema on first use.
+- `templates/base.html` - Added hamburger button, mobile-nav drawer markup, and toggle script
+- `static/style.css` - Added hamburger button and mobile drawer styles
 
-**Impact:** Any existing database (including those from merged old production projects) now automatically gets the required columns (`is_holiday` in `daily_prices`, `latest_nav_date` in `mutual_fund_assets`) without manual intervention.
+**Verification:** All routes return HTTP 200. Rendered HTML at `/` contains the nav-toggle button, mobile-nav drawer, and all 7 navigation links. Theme toggle, avatar, and topnav spacing remain intact on desktop.
 
-**Test:** Verified with a test that creates an old-style database without the `is_holiday` column, then calls `get_session()` — the column is automatically added and queries succeed.
-# Task History
+**Status:** Completed (2026-09-09)
+
+## 2026-09-03: Update Documentation Files - COMPLETED
+
+**Type:** Documentation
+**Status:** Completed
+
+**Goal:** Update PRD, TRD, DEPLOYMENT, IMPLEMENTATION_PLAN, and memory-bank documentation to reflect v1.3 features and recent improvements.
+
+**What Was Done:**
+1. Updated PRD.md to version 1.3:
+   - Added TigZig API for mutual funds (replaced mfapi.in)
+   - Added enhanced scoring engine (RSI, MA, close strength, gap)
+   - Added mutual fund freshness filtering
+   - Added modern web UI with Tailwind CSS v4 and Chart.js
+   - Added schema version tracking documentation
+   - Added stock search functionality
+
+2. Updated TRD.md to version 1.3:
+   - Added schema version tracking section (v2.0)
+   - Updated mutual fund implementation with TigZig API and freshness filtering
+   - Updated data flow with 60-day window scoring
+   - Added enhanced scoring engine documentation
+   - Added web UI architecture section
+
+3. Updated DEPLOYMENT.md:
+   - Added mutual fund data fetch step documentation
+   - Updated data sources (TigZig API)
+   - Updated schedule to 01:47 UTC (07:17 IST)
+
+4. Updated IMPLEMENTATION_PLAN.md with completed chart implementation
+
+5. Updated memory-bank files:
+   - project-context.md - Added recent enhancements and open items
+   - architecture.md - Updated layer components
+   - requirements.md - Updated functional requirements
+   - current-state.md - Updated to 2026-09-03 with recent changes
+   - known-issues.md - Reorganized issues with proper numbering
+   - decisions.md - Added new architectural decisions
+
+**Status:** Completed (2026-09-03)
 
 ## 2026-08-30: Change Top 50 Mutual Funds to use mutual_funds.db - COMPLETED
 
@@ -56,6 +119,12 @@
 
 **Key Changes**:
 - Removed hardcoded `get_all_schemes()` function
+- Added real data integration for dashboard "Top Stocks by Index" section (2026-09-04)
+  - Fetches real-time data for NIFTY 50, NIFTY BANK, SENSEX, and NIFTY IT indices
+  - Displays constituent stocks from each index in configurable grid layout
+  - Falls back to demo data when real data sources unavailable
+  - Includes sector performance calculation from real stock data
+  - Designed for future user customization of displayed indices
 - Added `search_schemes()` with `plan="Direct"` and `option="Growth"` query parameters
 - Added `fetch_all_schemes_for_category()` with pagination support for all categories
 - Added `fetch_and_filter_direct_growth()` to filter API results

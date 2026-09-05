@@ -19,6 +19,11 @@
 <body>
     <nav class="topnav">
         <div class="logo"><span class="dot"></span> StockTracker</div>
+        <button id="nav-toggle" class="nav-toggle" aria-label="Toggle navigation menu" type="button">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
         <div class="navlinks">
             <a href="/" class="{% if active == 'home' %}active{% endif %}">Dashboard</a>
             <a href="/stocks" class="{% if active == 'stocks' %}active{% endif %}">Stocks</a>
@@ -37,6 +42,31 @@
         </button>
         <div class="avatar"><i data-lucide="user"></i></div>
     </nav>
+
+    <div class="mobile-nav" id="mobile-nav">
+        <div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
+        <div class="mobile-nav-panel">
+            <div class="mobile-nav-header">
+                <div class="logo"><span class="dot"></span> StockTracker</div>
+                <button id="nav-close" class="nav-close" aria-label="Close navigation menu" type="button">
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <nav class="mobile-nav-links">
+                <a href="/" class="{% if active == 'home' %}active{% endif %}">📊 Dashboard</a>
+                <a href="/stocks" class="{% if active == 'stocks' %}active{% endif %}">📈 Stocks</a>
+                <a href="/prices" class="{% if active == 'prices' %}active{% endif %}">💹 Prices</a>
+                <a href="/suggestions" class="{% if active == 'suggestions' %}active{% endif %}">⭐ Suggestions</a>
+                <a href="/gainers-losers" class="{% if active == 'gainers_losers' %}active{% endif %}">📈 Gainers & Losers</a>
+                <a href="/mutual-funds" class="{% if active == 'mutual_funds' %}active{% endif %}">🏦 Mutual Funds</a>
+                <a href="/search" class="{% if active == 'search' %}active{% endif %}">🔍 Search</a>
+            </nav>
+            <form class="mobile-nav-search" action="/stocks" method="get">
+                <input type="text" name="q" placeholder="Search stocks…" value="{{ request.args.get('q','') }}">
+            </form>
+        </div>
+    </div>
 
     <div class="layout">
         <aside class="sidebar">
@@ -85,6 +115,48 @@
             });
             updateIcon();
         })();
+    </script>
+
+    <script>
+    (function() {
+        const navToggle = document.getElementById('nav-toggle');
+        const navClose = document.getElementById('nav-close');
+        const mobileNav = document.getElementById('mobile-nav');
+        const mobileNavOverlay = document.getElementById('mobile-nav-overlay');
+
+        if (!navToggle || !mobileNav) return;
+
+        function openNav() {
+            mobileNav.classList.add('active');
+            navToggle.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeNav() {
+            mobileNav.classList.remove('active');
+            navToggle.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        navToggle.addEventListener('click', () => {
+            mobileNav.classList.contains('active') ? closeNav() : openNav();
+        });
+        if (navClose) {
+            navClose.addEventListener('click', closeNav);
+        }
+        if (mobileNavOverlay) {
+            mobileNavOverlay.addEventListener('click', closeNav);
+        }
+        // Close when a nav link is clicked
+        mobileNav.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', closeNav);
+        });
+        // Close on ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && mobileNav.classList.contains('active')) {
+                closeNav();
+            }
+        });
+    })();
     </script>
 </body>
 </html>

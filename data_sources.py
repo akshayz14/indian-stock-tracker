@@ -37,6 +37,12 @@ class OHLCV:
     close: float
     adj_close: float
     volume: float
+    # Close of the previous trading session, if the source could determine
+    # one. ``None`` means "unknown" — callers should treat that as 0.0% and
+    # not attempt arithmetic. Populated by ``YFinanceSource.fetch_latest``
+    # when at least two rows of history are available; NSE and MF sources
+    # leave it as ``None`` for now.
+    prev_close: Optional[float] = None
 
 
 def _strip_exchange_suffix(symbol: str) -> str:
@@ -92,6 +98,18 @@ class YFinanceSource(DataSource):
 
         latest = hist.iloc[-1]
         row_date = latest.name.date() if isinstance(latest.name, datetime.datetime) else latest.name
+
+        # If we have at least two rows, capture the prior session's close so
+        # callers (e.g. dashboard percentage change) don't have to make a
+        # second round-trip. ``len(hist) >= 2`` guards against weekends /
+        # freshly-listed tickers where only the current row exists.
+        prev_close: Optional[float] = None
+        if len(hist) >= 2:
+            try:
+                prev_close = float(hist.iloc[-2]["Close"])
+            except Exception:
+                prev_close = None
+
         return OHLCV(
             date=row_date,
             open=float(latest["Open"]),
@@ -100,6 +118,7 @@ class YFinanceSource(DataSource):
             close=float(latest["Close"]),
             adj_close=float(latest.get("Adj Close", latest["Close"])),
             volume=float(latest["Volume"]),
+            prev_close=prev_close,
         )
 
     def fetch_history(self, symbol: str, limit: int = 60) -> List[OHLCV]:

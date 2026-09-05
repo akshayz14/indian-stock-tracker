@@ -1,19 +1,86 @@
 # Known Issues
 
-## 11. Missing Columns When Merging Old Production Database (Fixed)
+## 11. Schema Version Tracking (Fixed) — 2026-09-03
 
-**Description:** When merging with an old production project that was already deployed, the old database lacked the `is_holiday` column in `daily_prices` (and `latest_nav_date` in `mutual_fund_assets`). The `_add_missing_columns()` function in `models.py` was designed to handle this, but it was only called from `init_db()` which wasn't invoked by `cli.py` or `flask_app.py`. This caused `sqlalchemy.OperationalError: no such column: daily_prices.is_holiday` errors.
+**Description:** When merging with an old production database, missing columns caused `sqlalchemy.OperationalError: no such column` errors. Added schema version tracking (v2.0) with auto-migration in `get_session()` and `get_mutual_fund_session()`.
 
 **Location:** `models.py` — `get_session()` and `get_mutual_fund_session()` functions
 
-**Fix Applied:** Modified `get_session()` and `get_mutual_fund_session()` to automatically call `Base.metadata.create_all(engine)` and the respective `_add_missing_columns()` functions before returning a session. This ensures any existing database (newly created or from a merged old project) gets the required columns automatically on first use.
-
 **Status:** Fixed (2026-09-03)
 
+## 10. fetch_history Returned Oldest Records Instead of Most Recent (Fixed) — 2026-08-30
 
-# Known Issues
+**Description:** `YFinanceSource.fetch_history()` returned the OLDEST 60 days instead of the most recent 60 days due to early loop break.
 
-## 1. Dashboard Charts Not Displaying Data (Fixed)
+**Fix Applied:** Removed `if len(records) >= limit: break`, added `return records[-limit:]`.
+
+**Status:** Fixed (2026-08-30)
+
+## 9. Mutual Fund Dynamic Fetching — COMPLETED (2026-08-30)
+
+**Description:** Rewrote `mutual_fund_db.py` to dynamically fetch 30+ funds per category from TigZig API.
+
+**Results:** Large Cap (33), Mid Cap (45), Small Cap (31), Debt (45) = 154 funds total
+
+**Status:** Completed (2026-08-30)
+
+## 8. Stock Detail Chart X-Axis Misleading Last Tick Label (Fixed)
+
+**Description:** Chart.js `maxTicksLimit: 10` caused auto-skipping of x-axis tick labels.
+
+**Fix Applied:** Show ALL labels when `priceLabels.length <= 30` by setting `autoSkip: false`.
+
+**Status:** Fixed
+
+## 7. Mutual Fund Freshness Filtering (Fixed) — 2026-08-29
+
+**Description:** Discontinued/wound-up funds shown in listings.
+
+**Fix Applied:** Added `is_fund_recent()`, freshness thresholds (730/365 days), `latest_nav_date` column.
+
+**Status:** Fixed (2026-08-29)
+
+## 6. GitHub Actions Schedule Before Market Open (Fixed) — 2026-08-29
+
+**Description:** Cron schedule ran at 05:30 IST, before market open.
+
+**Fix Applied:** Changed to `47 1 * * *` (07:17 IST).
+
+**Status:** Fixed (2026-08-29)
+
+## 5. Search Cache May Serve Stale Data
+
+**Description:** In-memory cache has 1-hour TTL that doesn't invalidate on new data.
+
+**Status:** Open (low priority)
+
+## 4. Mutual Fund Suggestion Testing Incomplete
+
+**Status:** Open
+
+## 3. Mutual Fund Processing Not Integrated into Daily Job
+
+**Description:** `mutual_fund_db.py` not automatically triggered by `run_daily.py`.
+
+**Workaround:** Run separately: `python mutual_fund_db.py`
+
+**Status:** Open
+
+## 2. Missing Mutual Fund Navigation Links
+
+**Description:** No navigation links to `/mutual-funds` in sidebar or top nav.
+
+**Workaround:** Access via direct URL: `http://localhost:8080/mutual-funds`
+
+**Status:** Open
+
+## 1. Dashboard Charts Not Displaying Data (Fixed) — 2026-08-29
+
+**Description:** Dashboard charts referenced undefined JavaScript variables, causing JSON serialization error.
+
+**Fix Applied:** Added `|default([])` filter to chart variables, fixed camelCase typo.
+
+**Status:** Fixed (2026-08-29)
 **Description**: The dashboard overview charts (Top Gainers Bar Chart and Score Distribution Histogram) in `templates/index.html` reference JavaScript variables (`top_gainer_labels`, `top_gainer_values`, `score_labels`, `score_data`) that are not being passed from the Flask `index()` route in `flask_app.py`. This caused an `Object of type Undefined is not JSON serializable` error on the dashboard.
 
 **Location**:
@@ -77,6 +144,24 @@
 **Workaround**: None - data will refresh automatically after cache expiration.
 
 **Status**: Open (considered low priority)
+
+## 5b. Stock Search Dropdown Had Transparent Background / Invisible Suggestions (Fixed)
+**Description**: The stock search autocomplete dropdown (`templates/search.html`) used CSS variables `--surface` and `--text` which **do not exist** in the project's design tokens (`static/style.css`). Undefined CSS variables fall back to `transparent`/inherited, so:
+- The dropdown background was transparent and blended into the page background.
+- Suggestion text (`color: var(--text)`) had no defined color, making names nearly invisible in dark mode.
+- Hover used `transparent` as the reset, so hovering didn't provide a visible highlight.
+
+**Location**: `templates/search.html` lines 21, 27, 45, 58, 84-88 (JS-generated suggestions).
+
+**Fix Applied** (2026-09-09): Replaced undefined variables with the correct project tokens:
+- `var(--surface)` → `var(--card)` (solid card background: `#131826` dark / `#ffffff` light)
+- `var(--text)` → `var(--foreground)` (text color: `#e2e8f0` dark / `#0f172a` light)
+- `var(--muted)` → `var(--muted-foreground)` (secondary text)
+- Dropdown hover: `rgba(59,130,246,0.05)` → `var(--primary-soft)` for consistent theme
+- Dropdown z-index: `100` → `1000` (ensure it renders above other page content)
+- Dropdown shadow: `0 4px 12px rgba(0,0,0,0.1)` → `0 8px 24px rgba(0,0,0,0.35)` (more visible in dark mode)
+
+**Status**: Fixed (2026-09-09)
 
 ## 6. GitHub Actions Cron Schedule Ran Before NSE Market Open (Fixed)
 **Description**: The scheduled workflow in `.github/workflows/update-stock-data.yml` was set to `cron: '0 0 * * *'` which corresponds to **00:00 UTC = 05:30 IST**. This runs **before NSE market opens** (09:15-15:30 IST), meaning the data fetcher would either fail to get same-day data or fall back to stale previous-day data.
@@ -170,3 +255,82 @@
 - 45 suggestions are now being generated correctly for the most recent date
 
 **Status**: Fixed (2026-08-30)
+
+## 12. Dashboard Percentages All 0.0% (Fixed) — 2026-09-04
+
+**Description**: All "Top Stocks by Index" cards (index headers and constituent stocks) showed `0.0%` change chips. Sectors showed nothing. Real prices were correct; only percentage was wrong.
+
+**Root Cause**: `YFinanceSource.fetch_latest()` returned only the latest-day `OHLCV` (no previous close), and `index_data.py` hardcoded `"changePct": 0.0` for indices and never assigned it for stocks. The TODO comments in `_fetch_single_index_data` and `_fetch_stock_details` flagged this.
+
+**Fix Applied**:
+1. Added optional `prev_close: Optional[float] = None` to `OHLCV` dataclass (`data_sources.py`).
+2. `YFinanceSource.fetch_latest()` now reads `hist.iloc[-2]["Close"]` when `len(hist) >= 2` and stores it on the returned `OHLCV`. No second API call needed.
+3. Added `_pct_change(current, previous)` helper in `index_data.py` that returns `0.0` for None/zero/non-finite inputs (no NaN/Inf in UI).
+4. `_fetch_single_index_data()` and `_fetch_stock_details()` now call `_pct_change` against `result.prev_close`.
+
+**Why It's Safe**: NSE and MF sources leave `prev_close=None`; both call sites tolerate that and fall back to `0.0%`. `getattr(..., "prev_close", None)` is used for forward-compat with older `OHLCV` instances if any are cached.
+
+**Verification**: Live data sample — NIFTY 50 +0.31%, SENSEX +0.76%, NIFTY BANK +0.33%, NIFTY IT -0.09%, RELIANCE +2.13%, HDFCBANK +1.20%, ICICIBANK +0.14%, TCS -0.12%, WIPRO +1.25%.
+
+**Status**: Fixed (2026-09-04)
+
+## 13. Market Performance Chart Overflows Card & Page (Fixed) — 2026-09-09
+
+**Description**: The Market Performance line chart on the dashboard rendered correctly in the canvas itself, but the canvas extended past the right edge of the page. The Market Performance card (with header + timeframe buttons) was correctly sized in the left column, but the chart itself was placed outside that card and rendered at near-full page width, pushing the Watch List card into a squished left column.
+
+**Root Cause**: Two structural problems in `templates/index.html` lines 11–25:
+1. The `</div>` that closes `#market-performance-container` was placed **before** the `<div class="widget-chart"><canvas id="priceChart"></canvas></div>`. So the chart was a sibling of the card, not a child of it — there was no width-constrained parent for the canvas.
+2. `.dashboard-grid-2col` (`grid-template-columns: 2fr 1fr`) ended up with **three** direct children: (a) empty market-performance card, (b) `widget-chart` wrapper, (c) Watch List card. The chart wrapper became a 3rd grid item placed by `grid-auto-flow`, breaking the `2fr / 1fr` intent. With `responsive: true` + `maintainAspectRatio: false` on Chart.js, the canvas then expanded to fill its intrinsic width and overflowed past the page's right edge.
+
+**Fix Applied** (`templates/index.html`):
+- Moved the closing `</div>` of `#market-performance-container` to **after** the `<div class="widget-chart">…</div>` line. The chart is now nested inside the card.
+- Card + chart together form one grid item (the `2fr` column); Watch List is the second grid item (the `1fr` column).
+
+**Why This Works**:
+- `.widget-chart` has `position: relative; height: 300px`. Now that it's inside `.card` (which sits inside the `2fr` grid track), the canvas's parent has a fixed width and the Chart.js `responsive: true` + `maintainAspectRatio: false` correctly resizes the chart to fit the column.
+- The grid now has exactly two children, so `grid-template-columns: 2fr 1fr` produces the intended Market Performance (wide) / Watch List (narrow) layout.
+
+**Status**: Fixed (2026-09-09)
+
+## 15. Skeleton Placeholder Not Visible for "Top Stocks by Index" Grid (Fixed) — 2026-09-09
+
+**Description:** The skeleton loading placeholders were not appearing for the "Top Stocks by Index" section. The `showLoading()` and `showLoaded()` functions rely on finding a `.widget-container` ancestor to toggle the `loading`/`loaded` CSS classes. However, the `#indices-container` element was missing the `widget-container` class on its parent.
+
+**Root Cause:** The HTML structure for "Top Stocks by Index" was:
+```html
+<div id="indices-section" class="dashboard-section">
+  <h2>Top Stocks by Index</h2>
+  <div class="dashboard-grid-indices" id="indices-container">
+  </div>
+</div>
+```
+The parent `#indices-section` has class `dashboard-section` but NOT `widget-container`, unlike all other dashboard sections (watchlist, gainers, losers, sector-performance).
+
+**Fix Applied:** Added `widget-container` class to `#indices-container` in `templates/index.html`:
+```html
+<div class="dashboard-grid-indices widget-container" id="indices-container">
+```
+
+**Why This Works:** Now `el.closest('.widget-container')` in `showLoading()`/`showLoaded()` correctly finds the ancestor, enabling the loading state mechanism. The CSS rule `.widget-container.loading { opacity: 0 }` will hide content during loading while skeletons are shown, and `.widget-container.loaded { opacity: 1 }` will fade in the real data.
+
+**Status:** Fixed (2026-09-09)
+
+## 14. Mobile Navigation Buttons Not Showing (Fixed) — 2026-09-09
+
+**Description**: On screens ≤1024px, both `.sidebar` and `.navlinks` were hidden with `display:none`, leaving mobile users with no way to navigate (no hamburger menu replacement). The topnav showed only the logo, theme toggle, and avatar, so the seven navigation buttons (Dashboard, Stocks, Prices, etc.) were inaccessible.
+
+**Root Cause**: The CSS at `static/style.css:178` (media query at `max-width: 1024px`) hid both `.sidebar` and `.navlinks` but introduced no alternative way to access navigation on small screens.
+
+**Fix Applied**:
+- `templates/base.html`: added a `<button id="nav-toggle">` with a three-line CSS hamburger icon to the topnav (after the logo). Added a `<div class="mobile-nav">` drawer immediately after `</nav>` containing an overlay, a header with logo + close button, all 7 nav links (with active-state highlighting matching the desktop topnav), and a search input. Added a small IIFE script to handle toggle/close/overlay-click/link-click/ESC-to-close.
+- `static/style.css`: added `.nav-toggle` (hidden by default, shown at `max-width: 1024px` via the media query); added `.mobile-nav`, `.mobile-nav-overlay`, `.mobile-nav-panel`, `.mobile-nav-header`, `.nav-close`, `.mobile-nav-links`, `.mobile-nav-search` styles. The drawer slides in from the left (`transform: translateX(-100%)` → `0`) and uses existing CSS variables for theming consistency.
+
+**Why This Works**:
+- The hamburger button is positioned in the topnav (right after the logo) so it appears on every page that extends `base.html` — no per-template changes needed.
+- The drawer reuses the same `active` variable and link list as the desktop topnav, so highlighting stays in sync.
+- The existing `.sidebar { display:none }` and `.navlinks { display:none }` rules at `max-width: 1024px` are kept; the drawer fills the navigation gap.
+- All 7 navigation buttons (Dashboard, Stocks, Prices, Suggestions, Gainers & Losers, Mutual Funds, Search) plus a search input are now reachable on mobile.
+
+**Verification**: All pages return HTTP 200. The rendered HTML at `/` contains 2 `nav-toggle` references, 8 `mobile-nav` references, and the 📊 Dashboard / 🔍 Search links inside the drawer. Theme toggle, avatar, and topnav spacing remain intact on desktop.
+
+**Status**: Fixed (2026-09-09)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, create_engine, Boolean
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, create_engine, Boolean
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 Base = declarative_base()
@@ -87,6 +87,20 @@ class MutualFundSuggestion(Base):
     
     asset = relationship('MutualFundAsset', back_populates='suggestions')
 
+
+class MarketIndexPrice(Base):
+    __tablename__ = 'market_index_prices'
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    interval = Column(String, nullable=False)
+    open = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    close = Column(Float)
+    volume = Column(Float)
+    created_at = Column(String)
+
 def get_engine(db_path='sqlite:///stocks.db'):
     return create_engine(db_path, echo=False)
 
@@ -114,6 +128,21 @@ def _add_missing_columns(engine):
         if inspect(engine).has_table('daily_prices') else set()
     dp_columns = {'is_holiday': 'BOOLEAN DEFAULT 0'}
 
+    # MarketIndexPrice model columns (for new table)
+    mip_existing = set(c['name'] for c in inspect(engine).get_columns('market_index_prices')) \
+        if inspect(engine).has_table('market_index_prices') else set()
+    mip_columns = {
+        'symbol': 'TEXT NOT NULL',
+        'timestamp': 'DATE NOT NULL',
+        'interval': 'TEXT NOT NULL',
+        'open': 'REAL',
+        'high': 'REAL',
+        'low': 'REAL',
+        'close': 'REAL',
+        'volume': 'REAL',
+        'created_at': 'TEXT',
+    }
+
     with engine.begin() as conn:
         for col_name, col_type in asset_columns.items():
             if col_name not in asset_existing:
@@ -121,13 +150,41 @@ def _add_missing_columns(engine):
         for col_name, col_type in dp_columns.items():
             if col_name not in dp_existing:
                 conn.execute(text(f'ALTER TABLE daily_prices ADD COLUMN "{col_name}" {col_type}'))
+        for col_name, col_type in mip_columns.items():
+            if col_name not in mip_existing:
+                conn.execute(text(f'ALTER TABLE market_index_prices ADD COLUMN "{col_name}" {col_type}'))
+        
+        # Add unique index for MarketIndexPrice table if it doesn't exist
+        if inspect(engine).has_table('market_index_prices'):
+            # Check if unique index already exists
+            indexes = inspect(engine).get_indexes('market_index_prices')
+            unique_exists = any(idx['unique'] and set(idx['column_names']) == {'symbol', 'timestamp', 'interval'} 
+                              for idx in indexes)
+            if not unique_exists:
+                try:
+                    conn.execute(text('''
+                        CREATE UNIQUE INDEX idx_market_index_prices_unique 
+                        ON market_index_prices (symbol, timestamp, interval)
+                    '''))
+                except Exception as e:
+                    # Index might already exist or there might be a race condition
+                    pass
 
-def init_db():
+def init_db(db_version: str = '2.0'):
+    """Initialize the database with schema version tracking.
+    
+    Args:
+        db_version: The model/schema version this DB should have.
+                    Increment this number whenever model changes are made.
+    """
     engine = get_engine()
     # Create all tables first (handles initial schema creation)
     Base.metadata.create_all(engine)
-    # Then add any missing columns from model updates
+    # Add any missing columns from model updates
     _add_missing_columns(engine)
+    _add_missing_mutual_fund_columns(engine)
+    # Set schema version
+    _set_schema_version(engine, db_version)
     return engine
 
 def get_session():
@@ -138,6 +195,7 @@ def get_session():
     # the current models expect.
     Base.metadata.create_all(engine)
     _add_missing_columns(engine)
+    _set_schema_version(engine, '2.0')
     Session = sessionmaker(bind=engine)
     return Session()
 
@@ -168,5 +226,42 @@ def get_mutual_fund_session():
     # Ensure schema is up to date before returning a session.
     Base.metadata.create_all(engine)
     _add_missing_mutual_fund_columns(engine)
+    _set_schema_version(engine, '2.0')
     Session = sessionmaker(bind=engine)
     return Session()
+def _get_schema_version(engine) -> str:
+    """Get the current schema version from the database, or None if not set."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    if not inspector.has_table('schema_version'):
+        return None
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(text("SELECT version FROM schema_version")).fetchone()
+            return row[0] if row else None
+    except Exception:
+        return None
+
+
+def _set_schema_version(engine, version: str):
+    """Set the schema version in the database."""
+    from sqlalchemy import inspect, text
+    # Create table if it doesn't exist
+    inspector = inspect(engine)
+    if not inspector.has_table('schema_version'):
+        with engine.begin() as conn:
+            conn.execute(text("""
+                CREATE TABLE schema_version (
+                    id INTEGER PRIMARY KEY,
+                    version TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.execute(text("INSERT INTO schema_version (version) VALUES (:version)"), {"version": version})
+    else:
+        # Table exists but may be empty - use MERGE/UPSERT or INSERT/UPDATE
+        with engine.begin() as conn:
+            # Try UPDATE first, if no rows affected then INSERT
+            result = conn.execute(text("UPDATE schema_version SET version = :version, updated_at = CURRENT_TIMESTAMP"), {"version": version})
+            if result.rowcount == 0:
+                conn.execute(text("INSERT INTO schema_version (version) VALUES (:version)"), {"version": version})

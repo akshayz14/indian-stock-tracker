@@ -1,44 +1,37 @@
-# Current State (as of 2026-08-30)
+# Current State (as of 2026-09-09)
 
 ## Repository Status
 - All core files present and tracked in Git.
-- Virtual environment likely set up but not verified.
+- Virtual environment set up and active.
 - Database files `stocks.db` and `mutual_funds.db` exist and are populated.
 - Dependencies listed in `requirements.txt`; some may need installation.
 
-## Recent Changes
-- Landing page redesign completed (2026-09-01)
-  - Fixed non-dashboard page styling (2026-09-02)
-    - Rewrote `static/style.css` (185 lines) with full design tokens, table styles (`.data`, `.table-wrap`), filter form styles (`.filters`, `.field`), button styles (`.btn` defaults to primary look), pagination, badge, link, pos/neg score chips, tooltip-btn, fund-filters, fund-header, detail-row, kv-grid, error-page, search page styles
-    - Cleaned up leftover XML tags in `templates/top_mutual_funds.html`
-    - All pages now have consistent spacing, proper button appearance, and proper table layout with column gaps
-  - Fixed theme toggle light/dark mode button (2026-09-03)
-    - Removed dependency on Lucide CDN for the theme toggle
-    - Simplified to use only Unicode sun (☀) and moon (☾) characters
-    - Wrapped JavaScript in IIFE for safety
-    - Removed `lucide.createIcons()` call that was breaking the script
-    - Added `type="button"` to prevent form submission
-    - Removed the duplicate theme initialization script from `<head>`
-    - JavaScript now independently handles: localStorage persistence, dark class toggle, icon switching
-    - CSS rules properly handle `.dark` class for theme switching
-    - Button is now visible and functional - clicking toggles between light and dark mode
-  - Updated `templates/base.html` with Tailwind CSS, Lucide icons, Chart.js CDN, dark/light theme toggle with localStorage persistence, sidebar navigation
-  - Updated `static/style.css` with complete modern theme design tokens (colors, spacing, typography), all component styles (stat-grid, cards, buttons, change-chip, stock-card, sector-chip, timeframe-group), responsive media queries
-  - Updated `templates/index.html` with full dashboard layout: stat-grid metrics, market performance chart with Chart.js, watch list, top stocks by index (NIFTY 50/NIFTY BANK), sector performance, top gainers/losers, all using demo_data context
-  - Updated `static/demo_data.js` with CDN loading for all JS dependencies
-  - Updated `templates/stocks.html`, `templates/mutual_funds.html`, `templates/prices.html`, `templates/ai_suggestions.html` with consistent layout styling, header cards, table styling, responsive grid
-  - Fixed `insert_demo_data.py` to inject DEMO_DATA and context_processor into flask_app.py for template rendering
-  - Fixed index.html template slicing issue (changed `|slice(6,12)` to `demo_data.stocks[3:6]` for proper list slicing)
-  - Dashboard renders successfully at `/` with all 15 UI component checks passing
-  - Removed `if len(records) >= limit: break` check that stopped collection early
-  - Added `return records[-limit:]` to take the most recent records
-  - This allows `detect_and_store_holidays()` to correctly identify missing data instead of incorrectly marking recent weekdays as holidays
+## Recent Changes (2026-08-30 to 2026-09-09)
+- **Dashboard Real-Data Integration (2026-09-09)** — `real_data_service.py` created to fetch real top gainers/losers from NSE India via `nsetools`.
+  - New module `real_data_service.py` with `get_dashboard_data_with_fallback()`, `GainerLoserStock` and `DashboardData` dataclasses, in-memory caching (5 min TTL), and yfinance name enrichment.
+  - `flask_app.py` updated to import `get_dashboard_data_with_fallback` and modified `inject_demo_data` context processor to replace `DEMO_DATA` gainers/losers with real data.
+  - `/gainers-losers` route already uses live NSE data (unchanged).
+  - Fallback to `DEMO_DATA_FALLBACK` if NSE API is unavailable.
+- **NIFTY 50 Market Performance Real-Data Integration (2026-09-09)** — `nifty_data_service.py` created with cache-first strategy using yfinance:
+  - New module `nifty_data_service.py` with `get_nifty_data()` function, Cache-first strategy using SQLite
+  - Supports ranges: 1D (5m interval, 5 min TTL), 1W (15m interval, 15 min TTL), 1M/3M/1Y (1d interval, 1-2 hour TTL)
+  - Database caching with `MarketIndexPrice` model, deduplication via unique index (symbol, timestamp, interval)
+  - Fallback to stale cache data when yfinance unavailable
+  - Added Flask API endpoint `/api/market-performance` that returns JSON with chart-ready data
+  - Frontend template updated to use `/api/market-performance?range=` + range parameter
+  - Timezone handling: Converts UTC timestamps to IST (+5:30) for display
+  - **Verified**: Market Performance graph now uses REAL NIFTY 50 data from Yahoo Finance instead of mock data
 - Fixed `run_daily.py` to generate suggestions for ALL dates in the 60-day window, not just the most recent date
   - Now queries all distinct dates from the last 60 days and calls `generate_suggestions()` for each date
   - Collects top 50 suggestions per day and sorts by score globally to show the best opportunities across the entire window
   - Database now stores 2145+ suggestions across 43 trading dates (2026-07-01 to 2026-08-28)
 - Updated `/top-mutual-funds` route in `flask_app.py` to query from `mutual_funds.db` instead of `stocks.db`
-- Updated `templates/top_mutual_funds.html` to use correct field mappings for `MutualFundAsset` model (scheme_name, scheme_code, fund_house)
+- Added friendly error pages for API failures (`categorize_error()` + `templates/error.html`)
+- Added schema version tracking and auto-migration in `models.py` (v2.0)
+- Added stock search route with yfinance fallback for non-Nifty 50 stocks
+- Added `detect_and_store_holidays()` for market calendar awareness
+
+## Implementation Summary
 - Top 50 mutual funds now ranked globally across all categories (Large Cap, Mid Cap, Small Cap, Debt) from `mutual_funds.db`
 - Removed mutual fund suggestion generation from `run_daily.py` (lines 28-32 and import)
 
@@ -93,4 +86,21 @@
 - Test CLI and Web UI functionality end-to-end
 - Verify mutual fund data appears in web UI at `/mutual-funds`
 - Replace demo data with real stock API data integration
+## Dashboard Real-Data Integration (2026-09-04)
+- `index_data.py` module created: Yahoo Finance integration for 4 indices (NIFTY 50, NIFTY BANK, SENSEX, NIFTY IT) via `^NSEI`, `^NSEBANK`, `^BSESN`, `^CNXIT`.
+- `INDEX_CONFIG` covers 4 indices × 3 constituent stocks each; `STOCK_SECTOR_MAP` static fallback (~50 stocks).
+- 1-hour in-memory cache (`CACHE_DURATION = 3600`), keyed `index_{symbol}` and `sector_performance`.
+- `flask_app.py` `index()` route calls `get_index_data_with_fallback()` / `get_sector_data_with_fallback()` with `_test_mode=False`, passing `indices_data` + `sectors_data` to template.
+- `templates/index.html` "Top Stocks by Index" and "Sector Performance" sections now loop over real data.
+- **Fixed (2026-09-04): all dashboard percentages showed 0.0%.** Root cause: `changePct` was hardcoded to `0.0` in both `_fetch_single_index_data` and `_fetch_stock_details`, and `YFinanceSource.fetch_latest()` returned only the latest row (no previous close). Fix: added optional `prev_close` field to `OHLCV` dataclass, populated by `YFinanceSource` from `hist.iloc[-2]["Close"]` when ≥2 rows exist, and added `_pct_change()` helper used in both index and stock dicts. Verified live: NIFTY 50 +0.31%, RELIANCE +2.13%, TCS -0.12%, HDFCBANK +1.20%, etc.
+- **Remaining**: `Market Performance`, `Watch List`, `Top Gainers/Losers` still use `demo_data` (intentional, step-by-step). `_test_mode` flag still present but set to `False` in route; `TEST_*_DATA` constants retained for dev fallback.
+
+- **UI: green up / red down arrows on percentage chips (2026-09-04)** — arrows are injected via CSS `::before` pseudo-elements on `.change-chip.up` (▲ U+25B2) and `.change-chip.down` (▼ U+25BC), `font-size:8px`, `gap:4px` flex layout. Same pattern applied to `.sector-chip`. Zero change now renders `neutral` (no arrow, muted color) instead of `up`. All four chip sites in `templates/index.html` (Watch List, index header, stock, sector) switched from `>= 0` to `> 0 / < 0 / else neutral`. Top Gainers `+` sign removed since the arrow replaces it.
+- **Sector Performance widget fix (2026-09-09)** — Four compounding bugs in `index_data.py`/`data_fetcher.py` were leaving the widget empty:
+  1. `Asset.sector` was `None` for all 50 stocks (DB populated before sector logic existed). Added `_resolve_sector()` helper in `data_fetcher.py` that strips `.NS`/`.BO` and looks up `STOCK_SECTOR_MAP`. `get_or_create_asset()` now backfills on the fly and on creation. New `backfill_asset_sectors()` helper for one-shot population of historical rows.
+  2. `STOCK_SECTOR_MAP` keys were bare tickers (`RELIANCE`) but DB stored `RELIANCE.NS` → 0/50 matches. Fixed by stripping suffix in both `_resolve_sector()` and `fetch_sector_performance()` fallback.
+  3. `fetch_sector_performance()` required *both* today's and yesterday's `DailyPrice` rows. Replaced with "latest available trading day in DB + day before" so weekends/holidays/stale DBs work.
+  4. `get_sector_data_with_fallback()` gated the `TEST_SECTOR_DATA` fallback on `_test_mode`, which the route set to `False`. Fallback is now unconditional when real data is empty (same pattern as the working index cards).
+  5. Added 24 missing Nifty 50 stocks to `STOCK_SECTOR_MAP` with NSE sector categorization (Financial Services, Telecom, Aviation, Power, Defense, Internet, Capital Goods, Consumer Durables) — no more "Other" bucket.
+  - **Verified live**: dashboard renders 15 sector chips (Financial Services +0.85%, Energy +0.59%, FMCG +0.58%, Banking +0.54%, Defense +0.51%, Consumer Durables -0.42%, Aviation +0.38%, Power +0.37%, Internet -0.22%, Telecom -0.17%, IT +0.15%, Capital Goods +0.14%, Metals -0.11%, Auto -0.05%, Pharma -0.04%). Arrows intact on `.sector-chip.up`/`.down` per design.
 - Add unit tests for dashboard rendering and UI components

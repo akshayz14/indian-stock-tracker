@@ -26,7 +26,7 @@ def init_database():
     print("Initializing database...")
     try:
         from models import init_db
-        engine = init_db()
+        engine = init_db(db_version='2.0')
         print("Database initialized successfully.")
         return True
     except Exception as e:

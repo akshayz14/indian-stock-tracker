@@ -62,13 +62,56 @@ def get_default_symbols():
 DEFAULT_SYMBOLS = get_default_symbols()
 
 # Helper to ensure an asset record exists
+def _resolve_sector(symbol: str, asset_type: str) -> str:
+    """
+    Resolve a sector for a symbol using the STOCK_SECTOR_MAP in index_data.
+
+    The map keys are bare NSE tickers (e.g. ``RELIANCE``); assets in the DB
+    are stored with ``.NS`` / ``.BO`` suffixes, so we strip those before
+    looking up. Returns ``"Other"`` when no match is found.
+    """
+    if asset_type != 'equity':
+        return ''
+    try:
+        from index_data import STOCK_SECTOR_MAP
+        bare = symbol.replace('.NS', '').replace('.BO', '')
+        return STOCK_SECTOR_MAP.get(bare, 'Other')
+    except Exception:
+        return 'Other'
+
+
 def get_or_create_asset(session: Session, symbol: str, name: str = None, exchange: str = None, sector: str = None, asset_type: str = 'equity'):
     asset = session.query(Asset).filter_by(symbol=symbol).first()
+    # Backfill sector on existing rows that were created before sector was populated
+    if asset and asset_type == 'equity' and (not asset.sector or asset.sector.strip() == '' or asset.sector == 'None'):
+        asset.sector = _resolve_sector(symbol, asset_type)
+        session.commit()
     if not asset:
-        asset = Asset(symbol=symbol, name=name or symbol, exchange=exchange or 'NSE', sector=sector, type=asset_type)
+        resolved_sector = sector if sector else _resolve_sector(symbol, asset_type)
+        asset = Asset(symbol=symbol, name=name or symbol, exchange=exchange or 'NSE', sector=resolved_sector, type=asset_type)
         session.add(asset)
         session.commit()
     return asset
+
+
+def backfill_asset_sectors():
+    """
+    One-shot helper: populate ``Asset.sector`` for all equity rows whose
+    sector is empty. Safe to call multiple times — only updates empty rows.
+    """
+    session = get_session()
+    try:
+        assets = session.query(Asset).filter(Asset.type == 'equity').all()
+        updated = 0
+        for asset in assets:
+            if not asset.sector or asset.sector.strip() == '' or asset.sector == 'None':
+                asset.sector = _resolve_sector(asset.symbol, 'equity')
+                updated += 1
+        if updated:
+            session.commit()
+        print(f'Backfilled sector for {updated} equity assets.')
+    finally:
+        session.close()
 
 def fetch_and_store(symbols, sources=None):
     """

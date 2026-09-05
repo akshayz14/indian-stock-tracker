@@ -18,13 +18,13 @@
                    placeholder="Type company name or symbol (e.g., Reliance, TCS)..."
                    value="{{ query|default('') }}"
                    autocomplete="off"
-                   style="width: 100%; padding: 14px 16px; font-size: 16px; border: 2px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); box-sizing: border-box;"
+                   style="width: 100%; padding: 14px 16px; font-size: 16px; border: 2px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); box-sizing: border-box;"
                    oninput="showSuggestions(this.value)"
                    onfocus="showSuggestions(this.value)"
                    onblur="setTimeout(hideSuggestions, 200)">
 
             <div id="suggestionsDropdown"
-                 style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; max-height: 300px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                 style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; max-height: 300px; overflow-y: auto; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.35);">
             </div>
         </div>
 
@@ -42,12 +42,12 @@
         <div style="display: grid; gap: 12px;">
             {% for stock in results %}
             <a href="/stock/{{ stock.symbol }}"
-               style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--text); transition: all 0.2s;"
+               style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--foreground); transition: all 0.2s;"
                onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'"
                onmouseout="this.style.borderColor='var(--border)'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 <div>
-                    <div style="font-weight: 600; font-size: 16px;">{{ stock.name }}</div>
-                    <div style="color: var(--muted); font-size: 14px;">{{ stock.symbol }} · {{ stock.exchange }}</div>
+                    <div style="font-weight: 600; font-size: 16px; color: var(--foreground);">{{ stock.name }}</div>
+                    <div style="color: var(--muted-foreground); font-size: 14px;">{{ stock.symbol }} · {{ stock.exchange }}</div>
                 </div>
                 <span style="color: var(--primary); font-size: 20px;">→</span>
             </a>
@@ -55,7 +55,7 @@
         </div>
     </div>
     {% elif query %}
-    <div style="margin-top: 24px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; text-align: center; color: var(--muted);">
+    <div style="margin-top: 24px; padding: 20px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; text-align: center; color: var(--muted-foreground);">
         <p style="margin: 0; font-size: 16px;">No stocks found for "{{ query }}"</p>
         <p style="margin: 8px 0 0 0; font-size: 14px;">Try searching for "Reliance", "Tata", or "HDFC"</p>
     </div>
@@ -81,11 +81,11 @@ function showSuggestions(query) {
 
             dropdown.innerHTML = data.map(stock =>
                 '<a href="/stock/' + encodeURIComponent(stock.symbol) + '" ' +
-                'style="display: block; padding: 12px 16px; text-decoration: none; color: var(--text); border-bottom: 1px solid var(--border); transition: background 0.15s;" ' +
-                'onmouseover="this.style.background=\'rgba(59,130,246,0.05)\'" ' +
-                'onmouseout="this.style.background=\'transparent\'">' +
-                '<div style="font-weight: 600;">' + stock.name + '</div>' +
-                '<div style="font-size: 13px; color: var(--muted);">' + stock.symbol + ' · ' + (stock.exchange || 'NSE') + '</div>' +
+                'style="display: block; padding: 12px 16px; text-decoration: none; color: var(--foreground); background: var(--card); border-bottom: 1px solid var(--border); transition: background 0.15s;" ' +
+                'onmouseover="this.style.background=\'var(--primary-soft)\'" ' +
+                'onmouseout="this.style.background=\'var(--card)\'">' +
+                '<div style="font-weight: 600; color: var(--foreground);">' + stock.name + '</div>' +
+                '<div style="font-size: 13px; color: var(--muted-foreground);">' + stock.symbol + ' · ' + (stock.exchange || 'NSE') + '</div>' +
                 '</a>'
             ).join('');
 

@@ -3,120 +3,340 @@
 {% block content %}
 <div class="page-head"><h1>Dashboard</h1><p>Market overview at a glance with real-time insights</p></div>
 <div class="stat-grid">
-<div class="stat"><div class="label">Tracked Stocks</div><div class="value brand">{{ demo_data.stocks|length }}</div></div>
-<div class="stat"><div class="label">NIFTY 50</div><div class="value mono">{{ demo_data.indices[0].value }}</div></div>
-<div class="stat"><div class="label">Buy Signals</div><div class="value mono">{{ demo_data.stocks|selectattr("recommendation","equalto","Buy")|list|length }}</div></div>
-<div class="stat"><div class="label">Top Sector</div><div class="value" style="font-size:20px;">{% set top_sector = demo_data.sectors|sort(attribute='pct', reverse=True)|first %}{{ top_sector.name }}</div></div>
+    <div class="stat"><div class="label">Tracked Stocks</div><div class="value brand">{{ stats.total_assets }}</div></div>
+    <div class="stat"><div class="label">NIFTY 50</div><div class="value mono" id="nifty-value">Loading...</div></div>
+    <div class="stat"><div class="label">Buy Signals</div><div class="value mono" id="buy-signals-count">Loading...</div></div>
+    <div class="stat"><div class="label">Top Sector</div><div class="value" style="font-size:20px;" id="top-sector">Loading...</div></div>
 </div>
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:24px;">
-<div class="card">
+<div class="dashboard-grid-2col">
+<div class="card widget-container" id="market-performance-container">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
 <h2 style="margin-top:0;font-size:18px;">Market Performance</h2>
 <div class="timeframe-group">
-<button class="btn btn-secondary active">1D</button><button class="btn btn-secondary">1W</button><button class="btn btn-secondary">1M</button><button class="btn btn-secondary">3M</button><button class="btn btn-secondary">1Y</button>
+<button class="btn btn-secondary active" data-timeframe="1D">1D</button>
+<button class="btn btn-secondary" data-timeframe="1W">1W</button>
+<button class="btn btn-secondary" data-timeframe="1M">1M</button>
+<button class="btn btn-secondary" data-timeframe="3M">3M</button>
+<button class="btn btn-secondary" data-timeframe="1Y">1Y</button>
 </div>
 </div>
-<div style="position:relative;height:300px;"><canvas id="priceChart"></canvas></div>
+<div class="widget-chart"><canvas id="priceChart"></canvas></div>
 </div>
-<div class="card">
+<div class="card widget-container" id="watchlist-container">
 <h2 style="margin-top:0;font-size:18px;">Watch List</h2>
-<div style="display:flex;flex-direction:column;gap:12px;">
-{% for s in demo_data.watchlist %}
-<a href="/stocks/{{s.symbol}}" style="display:block;padding:8px;border-radius:8px;border:1px solid var(--border);text-decoration:none;">
-<div style="display:flex;justify-content:space-between;align-items:center;">
-<div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">{{s.sector}}</span></div>
-<span class="change-chip {% if s.changePct>=0 %}up{% else %}down{% endif %}">{{s.changePct|round(2)}}%</span>
-</div>
-<div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin-top:4px;">{{s.price|round(2)}}</div>
-</a>
-{% endfor %}
+<div style="display:flex;flex-direction:column;gap:12px;" id="watchlist-content">
 </div>
 </div>
 </div>
-<div style="margin-top:32px;">
+<div id="indices-section" class="dashboard-section">
 <h2 style="font-size:18px;margin-bottom:16px;">Top Stocks by Index</h2>
-<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
-<div class="card">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-<h2 style="margin-top:0;font-size:18px;">NIFTY 50</h2>
-<span class="change-chip up">{{demo_data.indices[0].changePct|round(2)}}%</span>
-</div>
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-{% for s in demo_data.stocks[:3] %}
-<div class="stock-card" style="padding:12px;">
-<div style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</div>
-<div style="font-size:10px;color:var(--muted-foreground);">{{s.sector}}</div>
-<div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin:6px 0;">{{s.price|round(2)}}</div>
-<span class="change-chip {% if s.changePct>=0 %}up{% else %}down{% endif %}">{{s.changePct|round(2)}}%</span>
-</div>
-{% endfor %}
-</div>
-</div>
-<div class="card">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-<h2 style="margin-top:0;font-size:18px;">NIFTY BANK</h2>
-<span class="change-chip {% if demo_data.indices[1].changePct>=0 %}up{% else %}down{% endif %}">{{demo_data.indices[1].changePct|round(2)}}%</span>
-</div>
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-{% for s in demo_data.stocks[3:6] %}
-<div class="stock-card" style="padding:12px;">
-<div style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</div>
-<div style="font-size:10px;color:var(--muted-foreground);">{{s.sector}}</div>
-<div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;margin:6px 0;">{{s.price|round(2)}}</div>
-<span class="change-chip {% if s.changePct>=0 %}up{% else %}down{% endif %}">{{s.changePct|round(2)}}%</span>
-</div>
-{% endfor %}
-</div>
+<div class="dashboard-grid-indices widget-container" id="indices-container">
 </div>
 </div>
 
-<div class="card" style="margin-top:32px;">
+<div class="card widget-container dashboard-section" id="sector-performance-container">
 <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);margin-bottom:12px;">Sector Performance</h3>
-<div style="display:flex;flex-wrap:wrap;gap:8px;">
-{% for sector in demo_data.sectors %}
-<div class="sector-chip {% if sector.pct>=0 %}up{% else %}down{% endif %}">
-<span class="name">{{sector.name}}</span><span class="pct">{{sector.pct|round(2)}}%</span>
-</div>
-{% endfor %}
+<div style="display:flex;flex-wrap:wrap;gap:8px;" id="sector-container">
 </div>
 </div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;">
-<div class="card">
+<div class="gainers-losers-grid dashboard-grid-1-1 dashboard-section">
+<div class="card widget-container" id="gainers-container">
 <h2 style="margin-top:0;font-size:18px;">Top Gainers</h2>
-<div style="display:flex;flex-direction:column;gap:8px;">
-{% for s in demo_data.gainers %}
-<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid var(--border);">
-<div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">{{s.name}}</span></div>
-<span class="change-chip up">+{{s.changePct|round(2)}}%</span>
-</div>
-{% endfor %}
+<div style="display:flex;flex-direction:column;gap:8px;" id="gainers-content">
 </div>
 </div>
-<div class="card">
+<div class="card widget-container" id="losers-container">
 <h2 style="margin-top:0;font-size:18px;">Top Losers</h2>
-<div style="display:flex;flex-direction:column;gap:8px;">
-{% for s in demo_data.losers %}
-<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid var(--border);">
-<div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">{{s.symbol}}</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">{{s.name}}</span></div>
-<span class="change-chip down">{{s.changePct|round(2)}}%</span>
-</div>
-{% endfor %}
+<div style="display:flex;flex-direction:column;gap:8px;" id="losers-content">
 </div>
 </div>
 </div>
 {% endblock %}
 {% block extra_scripts %}
 <script>
-const priceCtx = document.getElementById('priceChart').getContext('2d');
-const gradient = priceCtx.createLinearGradient(0, 0, 0, 300);
-gradient.addColorStop(0, 'rgba(37,99,235,0.3)');
-gradient.addColorStop(1, 'rgba(37,99,235,0.0)');
-new Chart(priceCtx, { type: 'line', data: { labels: ['9:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30'], datasets: [{ label: 'NIFTY 50', data: [24750,24780,24820,24800,24850,24830,24870,24860,24890,24920,24900,24940,24960], borderColor: '#2563eb', backgroundColor: gradient, tension: 0.4, fill: true, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: 'var(--muted-foreground)', font: { size: 10 } } }, y: { grid: { color: 'var(--border)' }, ticks: { color: 'var(--muted-foreground)', font: { size: 10 }, callback: function(v){ return v.toLocaleString(); } } } } });
-document.querySelectorAll('.timeframe-group .btn-secondary').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.timeframe-group .btn-secondary').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
+(function() {
+    function fetchJSON(url) {
+        return fetch(url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now()).then(function(r) { return r.json(); });
+    }
+    function showLoading(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+
+        // Show skeleton placeholders appropriate to the container
+        var skeletons = {
+            'indices-container':
+                '<div class="skeleton skeleton-card skeleton-card-loading"></div>' +
+                '<div class="skeleton skeleton-card skeleton-card-loading" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-card skeleton-card-loading" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-card skeleton-card-loading" style="margin-top:8px;"></div>',
+            'sector-container':
+                '<span class="skeleton skeleton-chip"></span>' +
+                '<span class="skeleton skeleton-chip" style="margin-left:8px;"></span>' +
+                '<span class="skeleton skeleton-chip" style="margin-left:8px;"></span>' +
+                '<span class="skeleton skeleton-chip" style="margin-left:8px;"></span>',
+            'watchlist-content':
+                '<div class="skeleton skeleton-row"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>',
+            'gainers-content':
+                '<div class="skeleton skeleton-row"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>',
+            'losers-content':
+                '<div class="skeleton skeleton-row"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>' +
+                '<div class="skeleton skeleton-row" style="margin-top:8px;"></div>'
+        };
+        el.innerHTML = skeletons[id] || '<div class="skeleton skeleton-card skeleton-card-loading"></div>';
+        // Add loading class for fade transition
+        var container = el.closest('.widget-container');
+        if (container) container.classList.add('loading');
+    }
+    function showError(id, msg) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted-foreground);font-size:13px;">' + msg + '</div>';
+            // Add loading class to show error state (will fade in)
+            var container = el.closest('.widget-container');
+            if (container) container.classList.add('loading');
+        }
+    }
+    function showLoaded(id) {
+        // Remove loading class and add loaded class for fade transition
+        var el = document.getElementById(id);
+        if (el) {
+            var container = el.closest('.widget-container');
+            if (container) {
+                container.classList.remove('loading');
+                container.classList.add('loaded');
+            }
+        }
+    }
+    function loadGainers() {
+        showLoading('gainers-content');
+        fetchJSON('/api/dashboard/gainers').then(function(data) {
+            var el = document.getElementById('gainers-content');
+            if (!el) return;
+            if (data.status === 'success' && data.data && data.data.length > 0) {
+                el.innerHTML = data.data.slice(0, 5).map(function(s) {
+                    var cls = s.changePct > 0 ? 'up' : 'down';
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid var(--border);"><div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">' + s.symbol + '</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">' + (s.name || '') + '</span><div style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--muted-foreground);margin-top:4px;">' + (s.price || 0).toFixed(2) + '</div></div><span class="change-chip ' + cls + '">' + (s.changePct || 0).toFixed(2) + '%</span></div>';
+                }).join('');
+            } else {
+                el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted-foreground);font-size:13px;">No gainer data available</div>';
+            }
+        }).catch(function(err) { showError('gainers-content', 'Failed to load gainers'); });
+        showLoaded('gainers-content');
+    }
+    function loadLosers() {
+        showLoading('losers-content');
+        fetchJSON('/api/dashboard/losers').then(function(data) {
+            var el = document.getElementById('losers-content');
+            if (!el) return;
+            if (data.status === 'success' && data.data && data.data.length > 0) {
+                el.innerHTML = data.data.slice(0, 5).map(function(s) {
+                    var cls = s.changePct < 0 ? 'down' : 'up';
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid var(--border);"><div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">' + s.symbol + '</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">' + (s.name || '') + '</span><div style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--muted-foreground);margin-top:4px;">' + (s.price || 0).toFixed(2) + '</div></div><span class="change-chip ' + cls + '">' + (s.changePct || 0).toFixed(2) + '%</span></div>';
+                }).join('');
+            } else {
+                el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted-foreground);font-size:13px;">No loser data available</div>';
+            }
+        }).catch(function(err) { showError('losers-content', 'Failed to load losers'); });
+        showLoaded('losers-content');
+    }
+    function loadSectors() {
+        showLoading('sector-container');
+        fetchJSON('/api/dashboard/sector-performance').then(function(data) {
+            var el = document.getElementById('sector-container');
+            if (!el) return;
+            if (data.status === 'success' && data.data && data.data.length > 0) {
+                el.innerHTML = data.data.map(function(s) {
+                    var cls = s.pct > 0 ? 'up' : (s.pct < 0 ? 'down' : 'neutral');
+                    return '<span class="sector-chip ' + cls + '"><span class="name">' + s.name + '</span><span class="pct">' + (s.pct || 0).toFixed(2) + '%</span></span>';
+                }).join('');
+            } else {
+                el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted-foreground);font-size:13px;">No sector data available</div>';
+            }
+        }).catch(function(err) { showError('sector-container', 'Failed to load sectors'); });
+        showLoaded('sector-container');
+    }
+    function loadWatchlist() {
+        showLoading('watchlist-content');
+        fetchJSON('/api/dashboard/watchlist').then(function(data) {
+            var el = document.getElementById('watchlist-content');
+            if (!el) return;
+            if (data.status === 'success' && data.data && data.data.length > 0) {
+                el.innerHTML = data.data.slice(0, 6).map(function(s) {
+                    var cls = s.changePct > 0 ? 'up' : (s.changePct < 0 ? 'down' : 'neutral');
+                    return '<a href="/stocks/' + s.symbol + '" style="display:block;padding:8px;border-radius:8px;border:1px solid var(--border);text-decoration:none;color:inherit;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><span style="font-size:11px;font-weight:700;text-transform:uppercase;">' + s.symbol + '</span><span style="font-size:10px;color:var(--muted-foreground);margin-left:6px;">' + (s.sector || '') + '</span></div><span class="change-chip ' + cls + '">' + (s.changePct || 0).toFixed(2) + '%</span></div><div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;margin-top:4px;">' + (s.price || 0).toFixed(2) + '</div></a>';
+                }).join('');
+            } else {
+                el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted-foreground);font-size:13px;">No watchlist data available</div>';
+            }
+        }).catch(function(err) { showError('watchlist-content', 'Failed to load watchlist'); });
+        showLoaded('watchlist-content');
+    }
+    function loadIndices() {
+        showLoading('indices-container');
+        fetchJSON('/api/dashboard/chart-data').then(function(data) {
+            var el = document.getElementById('indices-container');
+            if (!el) return;
+            if (data.status === 'success' && data.data && data.data.length > 0) {
+                el.innerHTML = data.data.map(function(idx) {
+                    var cls = idx.changePct > 0 ? 'up' : (idx.changePct < 0 ? 'down' : 'neutral');
+                    return '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h2 style="margin-top:0;font-size:18px;">' + idx.name + '</h2><span class="change-chip ' + cls + '">' + (idx.changePct || 0).toFixed(2) + '%</span></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">' + (idx.stocks || []).slice(0, 3).map(function(stk) {
+                        var c = stk.changePct > 0 ? 'up' : (stk.changePct < 0 ? 'down' : 'neutral');
+                        return '<div class="stock-card" style="padding:12px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;">' + stk.symbol + '</div><div style="font-size:10px;color:var(--muted-foreground);">' + (stk.sector || '') + '</div><div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;margin:6px 0;">' + (stk.price || 0).toFixed(2) + '</div><span class="change-chip ' + c + '">' + (stk.changePct || 0).toFixed(2) + '%</span></div>';
+                    }).join('') + '</div></div>';
+                }).join('');
+            } else {
+                el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted-foreground);font-size:13px;">No index data available</div>';
+            }
+        }).catch(function(err) { showError('indices-container', 'Failed to load indices'); });
+        showLoaded('indices-container');
+    }
+
+    function loadStats() {
+        fetchJSON('/api/dashboard/stats').then(function(data) {
+            if (data.status === 'success') {
+                var nifty = data.nifty || {};
+                var niftyEl = document.getElementById('nifty-value');
+                if (niftyEl) {
+                    if (nifty.value !== null && nifty.changePct !== null) {
+                        var cls = nifty.changePct > 0 ? 'up' : (nifty.changePct < 0 ? 'down' : 'neutral');
+                        niftyEl.innerHTML = nifty.value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) +
+                            ' <span class="change-chip ' + cls + '">' + nifty.changePct.toFixed(2) + '%</span>';
+                    } else {
+                        niftyEl.textContent = 'N/A';
+                    }
+                }
+                var signalsEl = document.getElementById('buy-signals-count');
+                if (signalsEl) {
+                    signalsEl.textContent = data.buy_signals || 0;
+                }
+                var sectorEl = document.getElementById('top-sector');
+                if (sectorEl) {
+                    sectorEl.textContent = data.top_sector || 'N/A';
+                }
+            }
+        }).catch(function(err) {
+            console.error('Failed to load stats:', err);
+            var niftyEl = document.getElementById('nifty-value');
+            var signalsEl = document.getElementById('buy-signals-count');
+            var sectorEl = document.getElementById('top-sector');
+            if (niftyEl) niftyEl.textContent = 'N/A';
+            if (signalsEl) signalsEl.textContent = '0';
+            if (sectorEl) sectorEl.textContent = 'N/A';
+        });
+    }
+
+    function loadChart() {
+        var canvas = document.getElementById('priceChart');
+        if (!canvas || !canvas.getContext) return;
+        var ctx = canvas.getContext('2d');
+        if (canvas.chartInstance) canvas.chartInstance.destroy();
+        var gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(37,99,235,0.3)');
+        gradient.addColorStop(1, 'rgba(37,99,235,0.0)');
+        var activeBtn = document.querySelector('.timeframe-group .btn-secondary.active');
+        var range = (activeBtn ? activeBtn.getAttribute('data-timeframe') : '1D') || '1D';
+        fetchJSON('/api/market-performance?range=' + range).then(function(response) {
+            if (response.status === 'success' || response.status === 'partial') {
+                var chartPoints = (response.data || []).map(function(point) {
+                    return { x: point.timestamp, y: point.value };
+                });
+                var labels = chartPoints.map(function(d) {
+                    try {
+                        var dt = new Date(d.x);
+                        var hours = dt.getHours().toString().padStart(2, '0');
+                        var mins = dt.getMinutes().toString().padStart(2, '0');
+                        return hours + ':' + mins;
+                    } catch(e) {
+                        return d.x;
+                    }
+                });
+                var series = chartPoints.map(function(d) { return d.y; });
+                canvas.chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'NIFTY 50',
+                            data: series,
+                            borderColor: '#2563eb',
+                            backgroundColor: gradient,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 0,
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                titleColor: '#ffffff',
+                                bodyColor: '#e2e8f0',
+                                borderColor: 'rgba(255,255,255,0.1)',
+                                borderWidth: 1
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: function(context) {
+                                        return getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim();
+                                    },
+                                    font: { size: 10 }
+                                }
+                            },
+                            y: {
+                                grid: { color: function(context) {
+                                    return getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+                                } },
+                                ticks: {
+                                    color: function(context) {
+                                        return getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim();
+                                    },
+                                    font: { size: 10 },
+                                    callback: function(v) { return v.toLocaleString(); }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }).catch(function(err) { console.error('Failed to load chart:', err); });
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStats();
+        loadGainers();
+        loadLosers();
+        loadChart();
+        loadSectors();
+        loadWatchlist();
+        loadIndices();
+        var btns = document.querySelectorAll('.timeframe-group .btn-secondary');
+        for (var i = 0; i < btns.length; i++) {
+            btns[i].addEventListener('click', function() {
+                var all = document.querySelectorAll('.timeframe-group .btn-secondary');
+                for (var j = 0; j < all.length; j++) all[j].classList.remove('active');
+                this.classList.add('active');
+                loadChart();
+            });
+        }
     });
-});
+})();
 </script>
 {% endblock %}
