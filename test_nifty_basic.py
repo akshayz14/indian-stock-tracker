@@ -100,6 +100,46 @@ class TestNiftyDataService:
         for key in required_keys:
             assert key in result, f'Missing key: {key}'
 
+    def test_different_ranges_return_different_data(self):
+        """Test that different ranges with the same interval return different data.
+
+        This tests the fix for the issue where 1M, 3M, and 1Y all returned
+        the same cached data because the cache key only used (symbol, interval).
+        """
+        from nifty_data_service import get_nifty_data, fetch_nifty_data
+
+        # Fetch 1M data
+        result_1m = get_nifty_data('1M')
+        assert result_1m['status'] == 'success'
+        data_1m = result_1m['data']
+
+        # Fetch 3M data
+        result_3m = get_nifty_data('3M')
+        assert result_3m['status'] == 'success'
+        data_3m = result_3m['data']
+
+        # Fetch 1Y data
+        result_1y = get_nifty_data('1Y')
+        assert result_1y['status'] == 'success'
+        data_1y = result_1y['data']
+
+        # All three ranges use interval='1d', so they should return
+        # different data (different number of data points for different time ranges)
+        # 1Y should have the most points, 1M the fewest
+        assert len(data_1y) >= len(data_3m), \
+            f"1Y should have >= data points than 3M: 1Y={len(data_1y)}, 3M={len(data_3m)}"
+        assert len(data_3m) >= len(data_1m), \
+            f"3M should have >= data points than 1M: 3M={len(data_3m)}, 1M={len(data_1m)}"
+
+        # The data should not be identical between ranges
+        if len(data_1m) > 0 and len(data_1y) > 0:
+            # At least the last timestamp should differ if ranges are different
+            # (1Y covers a longer period so its earliest data point should be older)
+            ts_1m_first = data_1m[0]['timestamp']
+            ts_1y_first = data_1y[0]['timestamp']
+            assert ts_1m_first != ts_1y_first, \
+                f"1M and 1Y should have different earliest timestamps: 1M={ts_1m_first}, 1Y={ts_1y_first}"
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

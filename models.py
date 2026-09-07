@@ -94,6 +94,7 @@ class MarketIndexPrice(Base):
     symbol = Column(String, nullable=False)
     timestamp = Column(DateTime, nullable=False)
     interval = Column(String, nullable=False)
+    range_key = Column(String, nullable=True)
     open = Column(Float)
     high = Column(Float)
     low = Column(Float)
@@ -135,6 +136,7 @@ def _add_missing_columns(engine):
         'symbol': 'TEXT NOT NULL',
         'timestamp': 'DATE NOT NULL',
         'interval': 'TEXT NOT NULL',
+        'range_key': 'TEXT',
         'open': 'REAL',
         'high': 'REAL',
         'low': 'REAL',
@@ -156,15 +158,24 @@ def _add_missing_columns(engine):
         
         # Add unique index for MarketIndexPrice table if it doesn't exist
         if inspect(engine).has_table('market_index_prices'):
-            # Check if unique index already exists
+            # Check if unique index already exists with correct columns
             indexes = inspect(engine).get_indexes('market_index_prices')
-            unique_exists = any(idx['unique'] and set(idx['column_names']) == {'symbol', 'timestamp', 'interval'} 
-                              for idx in indexes)
-            if not unique_exists:
+            expected_columns = {'symbol', 'timestamp', 'interval', 'range_key'}
+            unique_with_range_key = any(idx['unique'] and set(idx['column_names']) == expected_columns
+                                       for idx in indexes)
+            
+            if not unique_with_range_key:
                 try:
+                    # Drop old index if it exists (without range_key)
+                    old_index = any(idx['unique'] and set(idx['column_names']) == {'symbol', 'timestamp', 'interval'}
+                                   for idx in indexes)
+                    if old_index:
+                        conn.execute(text('DROP INDEX IF EXISTS idx_market_index_prices_unique'))
+                    
+                    # Create new index with range_key
                     conn.execute(text('''
                         CREATE UNIQUE INDEX idx_market_index_prices_unique 
-                        ON market_index_prices (symbol, timestamp, interval)
+                        ON market_index_prices (symbol, timestamp, interval, range_key)
                     '''))
                 except Exception as e:
                     # Index might already exist or there might be a race condition

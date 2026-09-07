@@ -334,3 +334,19 @@ The parent `#indices-section` has class `dashboard-section` but NOT `widget-cont
 **Verification**: All pages return HTTP 200. The rendered HTML at `/` contains 2 `nav-toggle` references, 8 `mobile-nav` references, and the 📊 Dashboard / 🔍 Search links inside the drawer. Theme toggle, avatar, and topnav spacing remain intact on desktop.
 
 **Status**: Fixed (2026-09-09)
+## 17. Market Performance Graph Shows Same Data for 1M, 3M, 1Y Ranges — FIXED 2026-09-09
+
+**Description:** The Market Performance graph on the dashboard displayed identical data for 1M, 3M, and 1Y time ranges, despite requesting different time periods. This occurred because the caching mechanism in `nifty_data_service.py` used `(symbol, interval)` as the cache key, and all three ranges (1M, 3M, 1Y) use the same `interval="1d"` (1-day interval). When 1M data was fetched first, it was cached and subsequently returned for 3M and 1Y requests, causing all charts to show the same 1-month data.
+
+**Location:** `nifty_data_service.py`, `models.py`, `migration.sql`, `test_nifty_basic.py`
+
+**Fix Applied:**
+1. Added `range_key` column to `MarketIndexPrice` model to distinguish cached data by time range
+2. Updated `_get_cached_from_db()` to filter by `range_key` in addition to symbol and interval
+3. Updated `_save_to_db()` to store the `range_key` with cached data
+4. Modified the unique index on `market_index_prices` to include `range_key` (symbol, timestamp, interval, range_key)
+5. Updated `_add_missing_columns()` migration function to add the `range_key` column and properly migrate the unique index
+6. Added migration SQL to add `range_key` column to existing databases
+7. Enhanced test suite with `test_different_ranges_return_different_data()` to verify the fix
+
+**Status:** Fixed (2026-09-09)

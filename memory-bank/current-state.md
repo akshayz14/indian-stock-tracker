@@ -7,6 +7,13 @@
 - Dependencies listed in `requirements.txt`; some may need installation.
 
 ## Recent Changes (2026-08-30 to 2026-09-09)
+- **Market Performance Chart Range Fix (2026-09-09)** — Fixed issue where 1M, 3M, and 1Y time ranges showed identical data on the Market Performance graph:
+  - Root cause: Cache key in `nifty_data_service.py` only used `(symbol, interval)` but 1M, 3M, 1Y all share `interval="1d"`
+  - Added `range_key` column to `MarketIndexPrice` model to distinguish cached data by time range
+  - Updated `_get_cached_from_db()` and `_save_to_db()` to filter/store by `range_key`
+  - Modified unique index to include `range_key` (symbol, timestamp, interval, range_key)
+  - Updated auto-migration in `models.py` and added migration SQL
+  - Added test `test_different_ranges_return_different_data()` to verify fix
 - **Dashboard Real-Data Integration (2026-09-09)** — `real_data_service.py` created to fetch real top gainers/losers from NSE India via `nsetools`.
   - New module `real_data_service.py` with `get_dashboard_data_with_fallback()`, `GainerLoserStock` and `DashboardData` dataclasses, in-memory caching (5 min TTL), and yfinance name enrichment.
   - `flask_app.py` updated to import `get_dashboard_data_with_fallback` and modified `inject_demo_data` context processor to replace `DEMO_DATA` gainers/losers with real data.
@@ -15,7 +22,7 @@
 - **NIFTY 50 Market Performance Real-Data Integration (2026-09-09)** — `nifty_data_service.py` created with cache-first strategy using yfinance:
   - New module `nifty_data_service.py` with `get_nifty_data()` function, Cache-first strategy using SQLite
   - Supports ranges: 1D (5m interval, 5 min TTL), 1W (15m interval, 15 min TTL), 1M/3M/1Y (1d interval, 1-2 hour TTL)
-  - Database caching with `MarketIndexPrice` model, deduplication via unique index (symbol, timestamp, interval)
+  - Database caching with `MarketIndexPrice` model, deduplication via unique index (symbol, timestamp, interval, range_key)
   - Fallback to stale cache data when yfinance unavailable
   - Added Flask API endpoint `/api/market-performance` that returns JSON with chart-ready data
   - Frontend template updated to use `/api/market-performance?range=` + range parameter

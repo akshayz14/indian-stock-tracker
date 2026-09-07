@@ -119,7 +119,7 @@ def _validate_series(series: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return valid
 
 
-def _get_cached_from_db(symbol: str, interval: str) -> Optional[Dict[str, Any]]:
+def _get_cached_from_db(symbol: str, interval: str, range_key: str) -> Optional[Dict[str, Any]]:
     """Retrieve the most recent cached data from the database."""
     session = get_session()
     try:
@@ -128,6 +128,7 @@ def _get_cached_from_db(symbol: str, interval: str) -> Optional[Dict[str, Any]]:
             .filter(
                 MarketIndexPrice.symbol == symbol,
                 MarketIndexPrice.interval == interval,
+                MarketIndexPrice.range_key == range_key,
             )
             .order_by(MarketIndexPrice.timestamp.asc())
             .all()
@@ -169,7 +170,7 @@ def _get_cached_from_db(symbol: str, interval: str) -> Optional[Dict[str, Any]]:
         session.close()
 
 
-def _save_to_db(symbol: str, interval: str, series: List[Dict[str, Any]]) -> None:
+def _save_to_db(symbol: str, interval: str, range_key: str, series: List[Dict[str, Any]]) -> None:
     """Save fetched data points to the database cache.
 
     Uses no_autoflush to prevent the session from flushing pending
@@ -201,13 +202,14 @@ def _save_to_db(symbol: str, interval: str, series: List[Dict[str, Any]]) -> Non
             if not parsed:
                 return
 
-            # Check which timestamps already exist
+            # Check which timestamps already exist for this symbol+interval+range_key combination
             ts_values = [ts for ts, _ in parsed]
             existing_rows = (
                 session.query(MarketIndexPrice.timestamp)
                 .filter(
                     MarketIndexPrice.symbol == symbol,
                     MarketIndexPrice.interval == interval,
+                    MarketIndexPrice.range_key == range_key,
                     MarketIndexPrice.timestamp.in_(ts_values),
                 )
                 .all()
@@ -280,7 +282,7 @@ def fetch_nifty_data(range_key: str = "1D") -> NiftyDataResult:
     result = NiftyDataResult(range=range_key)
 
     # 1. Check cache freshness
-    cached = _get_cached_from_db(NIFTY_SYMBOL, interval)
+    cached = _get_cached_from_db(NIFTY_SYMBOL, interval, range_key)
     cache_fresh = _is_cache_fresh(cached, range_key)
 
     if cache_fresh and cached:
@@ -323,7 +325,7 @@ def fetch_nifty_data(range_key: str = "1D") -> NiftyDataResult:
                 return result
             raise RuntimeError(f"No valid data points for {NIFTY_SYMBOL}")
 
-        _save_to_db(NIFTY_SYMBOL, interval, series)
+        _save_to_db(NIFTY_SYMBOL, interval, range_key, series)
 
         result.data = series
         result.source = "yfinance"
