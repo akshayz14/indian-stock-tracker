@@ -255,9 +255,15 @@
                 var labels = chartPoints.map(function(d) {
                     try {
                         var dt = new Date(d.x);
-                        var hours = dt.getHours().toString().padStart(2, '0');
-                        var mins = dt.getMinutes().toString().padStart(2, '0');
-                        return hours + ':' + mins;
+                        if (range === '1D') {
+                            var hours = dt.getHours().toString().padStart(2, '0');
+                            var mins = dt.getMinutes().toString().padStart(2, '0');
+                            return hours + ':' + mins;
+                        } else if (range === '1W' || range === '1M') {
+                            return dt.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit' });
+                        } else {
+                            return dt.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', year: '2-digit' });
+                        }
                     } catch(e) {
                         return d.x;
                     }
