@@ -21,6 +21,14 @@
   - Frontend template updated to use `/api/market-performance?range=` + range parameter
   - Timezone handling: Converts UTC timestamps to IST (+5:30) for display
   - **Verified**: Market Performance graph now uses REAL NIFTY 50 data from Yahoo Finance instead of mock data
+- **Market Performance Chart Fix (2026-09-09)** — Fixed x-axis timeline display issue when switching tabs:
+  - Root cause: Chart instance was stored on DOM canvas element (`canvas.chartInstance`), which could be orphaned during tab navigation
+  - Fix: Moved chart instance tracking to module-level variable (`priceChartInstance`) with explicit `destroy()` before creating new chart
+  - Location: `templates/index.html` `loadChart()` function
+- **Market Performance Timezone Round-Trip Fix (2026-09-09)** — Fixed x-axis showing UTC instead of IST on cache refresh:
+  - Root cause: `_save_to_db()` stored timestamps as naive UTC; `_get_cached_from_db()` returned them without re-attaching timezone; frontend's `new Date(naive)` interpreted as browser-local time → 5h30m shift
+  - Fix: Added `_to_ist_iso()` helper that converts stored timestamps (naive UTC, aware UTC, or aware IST) to timezone-aware IST ISO strings with `+05:30` offset. Frontend `loadChart()` now uses `Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata' })` for explicit IST formatting (defense in depth)
+  - Location: `nifty_data_service.py` — `_to_ist_iso()` and `_get_cached_from_db()`; `templates/index.html` — `loadChart()` label generation
 - Fixed `run_daily.py` to generate suggestions for ALL dates in the 60-day window, not just the most recent date
   - Now queries all distinct dates from the last 60 days and calls `generate_suggestions()` for each date
   - Collects top 50 suggestions per day and sorts by score globally to show the best opportunities across the entire window

@@ -55,6 +55,9 @@
 {% block extra_scripts %}
 <script>
 (function() {
+    // Track chart instance at module level to handle page reloads properly
+    var priceChartInstance = null;
+
     function fetchJSON(url) {
         return fetch(url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now()).then(function(r) { return r.json(); });
     }
@@ -241,7 +244,11 @@
         var canvas = document.getElementById('priceChart');
         if (!canvas || !canvas.getContext) return;
         var ctx = canvas.getContext('2d');
-        if (canvas.chartInstance) canvas.chartInstance.destroy();
+        // Destroy previous chart instance if it exists (handles page reload scenarios)
+        if (priceChartInstance) {
+            priceChartInstance.destroy();
+            priceChartInstance = null;
+        }
         var gradient = ctx.createLinearGradient(0, 0, 0, 300);
         gradient.addColorStop(0, 'rgba(37,99,235,0.3)');
         gradient.addColorStop(1, 'rgba(37,99,235,0.0)');
@@ -254,16 +261,29 @@
                 });
                 var labels = chartPoints.map(function(d) {
                     try {
+                        // API returns IST timezone-aware ISO strings. Use
+                        // explicit Asia/Kolkata formatting so labels match the
+                        // data regardless of the browser's local timezone.
                         var dt = new Date(d.x);
-                        var hours = dt.getHours().toString().padStart(2, '0');
-                        var mins = dt.getMinutes().toString().padStart(2, '0');
+                        var formatter = new Intl.DateTimeFormat('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+                        var parts = formatter.formatToParts(dt);
+                        var hours = '00', mins = '00';
+                        for (var i = 0; i < parts.length; i++) {
+                            if (parts[i].type === 'hour') hours = parts[i].value;
+                            if (parts[i].type === 'minute') mins = parts[i].value;
+                        }
                         return hours + ':' + mins;
                     } catch(e) {
                         return d.x;
                     }
                 });
                 var series = chartPoints.map(function(d) { return d.y; });
-                canvas.chartInstance = new Chart(ctx, {
+                priceChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: labels,

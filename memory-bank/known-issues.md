@@ -1,5 +1,49 @@
 # Known Issues
 
+## 12. Market Performance Chart X-Axis Timeline Reset on Tab Switch (Fixed) — 2026-09-09
+
+**Description:** The NIFTY 50 Market Performance graph on the dashboard showed incorrect x-axis timeline when navigating away (e.g., to Stocks tab) and returning to Dashboard. The chart appeared to reset or display stale time labels after the first load.
+
+**Root Cause:** The chart instance was stored as a property on the DOM canvas element (`canvas.chartInstance`). When navigating between tabs, the browser may recreate or detach DOM nodes, causing the previous chart instance to be orphaned. When returning to the dashboard, a new Chart.js instance was created without properly destroying the old one, leading to overlapping chart instances and incorrect x-axis rendering.
+
+**Fix Applied:** 
+- Moved chart instance tracking to a module-level variable (`priceChartInstance`) instead of a DOM element property.
+- Added explicit `destroy()` call before creating a new chart instance.
+- Set the module variable to `null` after destruction to prevent memory leaks.
+
+**Location:** `templates/index.html` — `loadChart()` function
+
+**Status:** Fixed (2026-09-09)
+
+---
+
+## 13. Market Performance Chart X-Axis Showing UTC Instead of IST After Cache Refresh (Fixed) — 2026-09-09
+
+**Description:** On the first load of the dashboard, the Market Performance chart x-axis correctly showed Indian market hours (09:15 → 15:15 IST). After refresh within the 5-minute cache TTL, the x-axis labels shifted back by exactly 5h30m (e.g., 03:45 → 09:35) — i.e., the chart was displaying UTC times instead of IST.
+
+**Root Cause:** A timezone round-trip bug in the cache layer of `nifty_data_service.py`:
+- `_df_to_series()` correctly converts yfinance timestamps to IST (+05:30) timezone-aware strings.
+- `_save_to_db()` then converts these to **naive UTC** (`ts.astimezone(timezone.utc).replace(tzinfo=None)`) before persisting to SQLite. So 09:15 IST is stored as a naive `03:45` UTC datetime.
+- `_get_cached_from_db()` was reading these back with `row.timestamp.isoformat()`, producing naive strings like `"2026-09-09T03:45:00"` (no offset).
+- The frontend's `new Date(d.x)` interpreted the naive string in the **browser's local timezone**, which on a UTC-configured server rendered as 03:45.
+- First load worked because the cache was empty/expired → fresh yfinance data (IST) was used directly. Subsequent refreshes within TTL hit the cache and got naive-UTC strings.
+
+**Fix Applied:**
+- Added `_to_ist_iso(ts)` helper in `nifty_data_service.py` that converts any stored timestamp (naive UTC, aware UTC, or aware IST) to a timezone-aware IST ISO string with explicit `+05:30` offset.
+- `_get_cached_from_db()` now calls `_to_ist_iso(row.timestamp)` instead of `row.timestamp.isoformat()`.
+- Frontend `loadChart()` in `templates/index.html` now uses `Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', ... })` so labels are formatted in IST regardless of the browser's local timezone (defense in depth).
+
+**Why This Works:**
+- The API now always returns timezone-aware IST ISO strings (e.g., `"2026-09-09T09:15:00+05:30"`) — both from cache and from fresh yfinance fetches.
+- The `+05:30` offset means JavaScript's `new Date()` correctly interprets the timestamp in IST regardless of browser locale.
+- The frontend formatter is an explicit IST formatter, providing defense in depth if any future code path emits a naive string.
+
+**Location:** `nifty_data_service.py` — `_to_ist_iso()` and `_get_cached_from_db()`; `templates/index.html` — `loadChart()` label generation.
+
+**Verification:** After the fix, the API returns timestamps like `2026-09-07T09:15:00+05:30` → chart x-axis displays 09:15 → 15:15 consistently across cache hits and fresh fetches. Confirmed via `/api/market-performance?range=1D` returning 75 data points all with `+05:30` offset and IST market hours.
+
+**Status:** Fixed (2026-09-09)
+
 ## 11. Schema Version Tracking (Fixed) — 2026-09-03
 
 **Description:** When merging with an old production database, missing columns caused `sqlalchemy.OperationalError: no such column` errors. Added schema version tracking (v2.0) with auto-migration in `get_session()` and `get_mutual_fund_session()`.

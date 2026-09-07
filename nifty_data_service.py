@@ -119,6 +119,25 @@ def _validate_series(series: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return valid
 
 
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _to_ist_iso(ts: datetime) -> str:
+    """Convert a stored timestamp to an IST ISO-8601 string.
+
+    The DB stores timestamps as naive UTC (see _save_to_db). When reading
+    back from the cache we must re-attach the UTC timezone and convert to
+    IST so the frontend always receives the same timezone-aware labels it
+    gets from a fresh yfinance fetch.
+    """
+    if ts is None:
+        return ""
+    if hasattr(ts, 'tzinfo') and ts.tzinfo is not None:
+        return ts.astimezone(IST).isoformat()
+    # Naive datetime -> treat as UTC, convert to IST
+    return ts.replace(tzinfo=timezone.utc).astimezone(IST).isoformat()
+
+
 def _get_cached_from_db(symbol: str, interval: str) -> Optional[Dict[str, Any]]:
     """Retrieve the most recent cached data from the database."""
     session = get_session()
@@ -138,8 +157,8 @@ def _get_cached_from_db(symbol: str, interval: str) -> Optional[Dict[str, Any]]:
         records: Dict[str, Dict[str, Any]] = {}
         last_updated = None
         for row in rows:
-            ts_iso = row.timestamp.isoformat() if hasattr(row.timestamp, 'isoformat') else str(row.timestamp)
-            if ts_iso not in records:
+            ts_iso = _to_ist_iso(row.timestamp)
+            if ts_iso and ts_iso not in records:
                 records[ts_iso] = {
                     "timestamp": ts_iso,
                     "value": round(float(row.close), 2) if row.close else None,

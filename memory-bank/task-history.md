@@ -1,5 +1,44 @@
 # Task History
 
+## 2026-09-09: Market Performance Timezone Round-Trip Fix - COMPLETED
+
+**Type:** Bug Fix
+**Status:** Completed
+
+**Goal:** Fix the Market Performance chart x-axis showing UTC times (03:45 → 09:35) instead of IST (09:15 → 15:15) when refreshing the dashboard within the 5-minute cache TTL.
+
+**Problem:** The chart correctly showed IST on first load but shifted back by exactly 5h30m (the IST→UTC offset) on subsequent loads. Root cause was a timezone round-trip bug in `nifty_data_service.py`:
+- `_df_to_series()` correctly converts yfinance timestamps to IST (+05:30) timezone-aware strings
+- `_save_to_db()` then converts these to **naive UTC** (`ts.astimezone(timezone.utc).replace(tzinfo=None)`) before persisting to SQLite — so 09:15 IST becomes a naive `03:45` UTC datetime
+- `_get_cached_from_db()` was reading these back with `row.timestamp.isoformat()`, producing naive strings like `"2026-09-09T03:45:00"` (no offset)
+- The frontend's `new Date(d.x)` interpreted the naive string in the **browser's local timezone**, which on a UTC-configured server rendered as 03:45
+
+First load worked because the cache was empty/expired → fresh yfinance data (IST) was used directly. Subsequent refreshes within TTL hit the cache and got naive-UTC strings.
+
+**Fix Applied:**
+1. Added `_to_ist_iso(ts)` helper in `nifty_data_service.py` that converts any stored timestamp (naive UTC, aware UTC, or aware IST) to a timezone-aware IST ISO string with explicit `+05:30` offset
+2. `_get_cached_from_db()` now calls `_to_ist_iso(row.timestamp)` instead of `row.timestamp.isoformat()`
+3. Frontend `loadChart()` in `templates/index.html` now uses `Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false })` for explicit IST formatting (defense in depth)
+
+**Why This Works:**
+- The API now always returns timezone-aware IST ISO strings (e.g., `"2026-09-09T09:15:00+05:30"`) — both from cache and from fresh yfinance fetches
+- The `+05:30` offset means JavaScript's `new Date()` correctly interprets the timestamp in IST regardless of browser locale
+- The frontend formatter is an explicit IST formatter, providing defense in depth if any future code path emits a naive string
+
+**Files Changed:**
+- `nifty_data_service.py` — Added `_to_ist_iso()` helper and `IST` module constant; updated `_get_cached_from_db()` to use it
+- `templates/index.html` — Updated `loadChart()` label generation to use `Intl.DateTimeFormat` with `Asia/Kolkata` timezone
+- `memory-bank/known-issues.md` — Added issue #13 documentation
+- `memory-bank/current-state.md` — Added fix entry
+- `memory-bank/task-history.md` — This entry
+
+**Verification:**
+- `python3 /tmp/test_fix.py`: 5 unit tests covering naive UTC → IST, aware UTC → IST, aware IST → IST roundtrip, ISO offset presence, and market hours boundaries — all passed
+- Live API test: `get_nifty_data('1D')` returns 75 data points, all with `+05:30` offset, first at `2026-09-07T09:15:00+05:30`, last at `2026-09-07T15:15:00+05:30`
+- JavaScript syntax validated with `node --check` — OK
+
+**Status:** Completed (2026-09-09)
+
 ## 2026-09-03: Schema Version Tracking with Auto-Migration - COMPLETED
 
 **Type:** Bug Fix / Enhancement
