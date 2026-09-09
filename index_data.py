@@ -342,20 +342,31 @@ def fetch_sector_performance() -> List[Dict[str, Any]]:
 
         session = get_session()
 
-        # Use the latest available trading day in the DB (not today/yesterday),
+        # Use the latest available TRADING day in the DB (not today/yesterday),
         # and the trading day immediately before it. This handles weekends,
         # holidays, and DBs that lag behind the wall clock.
-        latest = session.query(DailyPrice.date).order_by(DailyPrice.date.desc()).first()
-        if not latest:
-            session.close()
-            return []
-        latest_date = latest[0]
+        #
+        # IMPORTANT: We must skip dates that are entirely holiday placeholders
+        # (rows with is_holiday=True / close=None). detect_and_store_holidays()
+        # inserts such placeholder rows for weekdays where no real trading data
+        # exists. If we naively pick the most recent date in the DB, we may land
+        # on a holiday and produce zero sector results (causing a fallback to
+        # stale test data). Instead, walk backwards through distinct dates and
+        # keep only those that have at least one real trading row.
+        real_trading_dates = (
+            session.query(DailyPrice.date)
+            .filter(DailyPrice.is_holiday == False, DailyPrice.close.isnot(None))
+            .distinct()
+            .order_by(DailyPrice.date.desc())
+            .all()
+        )
+        real_trading_dates = [d[0] for d in real_trading_dates]
 
-        prev = session.query(DailyPrice.date).filter(DailyPrice.date < latest_date).order_by(DailyPrice.date.desc()).first()
-        if not prev:
+        if len(real_trading_dates) < 2:
             session.close()
             return []
-        prev_date = prev[0]
+        latest_date = real_trading_dates[0]
+        prev_date = real_trading_dates[1]
 
         # Group prices by sector
         sector_prices = defaultdict(list)
